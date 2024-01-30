@@ -3,7 +3,6 @@
 #include <torch/extension.h>
 #include <torch/types.h>
 #include <vector>
-#include <THC/THC.h>
 #include <sys/time.h>
 
 double timestamp(){

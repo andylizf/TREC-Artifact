@@ -77,7 +77,7 @@ __global__ void im2row_DRbatch_cuda_kernel(
             data_row[(((matrix_id * batch_size + batch_id) * height_row + h_out) * width_row + w_out) * param_L + matrix_offset]
                 = (h >= 0 && w >= 0 && h < height && w < width)
                 ? im[i * width + j]
-                : ScalarConvert<int, scalar_t>::to(0);
+                : static_cast<scalar_t>(0);
             }
         }
     }

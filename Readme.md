@@ -67,7 +67,7 @@ python train_model.py \
 ```
 For simplicity, we put the scripts for training in the ``examples/scrips/`` directory. You can start training by simply executing the following command.
 
- 1. ``cd examples/scrips/ ``
+ 1. ``cd examples/scripts/ ``
  2. ``bash train_squeeze_on_cifar10_template.sh``
 
 

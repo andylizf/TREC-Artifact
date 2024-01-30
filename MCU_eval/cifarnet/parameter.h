@@ -1,0 +1,279 @@
+#define DATA_OUT_CH 3
+#define DATA_OUT_DIM 32
+
+#define CONV1_IN_DIM 32
+#define CONV1_IN_CH 3
+#define CONV1_KER_DIM 2
+#define CONV1_PAD 1
+#define CONV1_STRIDE 1
+#define CONV1_OUT_CH 64
+#define CONV1_OUT_DIM 16
+
+#define POOL1_IN_DIM 28
+#define POOL1_IN_CH 6
+#define POOL1_KER_DIM 2
+#define POOL1_STRIDE 2
+#define POOL1_PAD 0
+#define POOL1_OUT_DIM 14
+
+#define RELU1_OUT_CH 6
+#define RELU1_OUT_DIM 14
+
+#define CONV1_OUT_X 16
+#define CONV1_OUT_Y 16
+
+//30,50,45,80,80,150,120,100,70,100,120,500
+// 1, 2, 1, 2, 1,  2,  1,  1, 1,  1,  2,  1
+
+#define CONV2_OUT_S_CH 16
+#define CONV2_OUT_E_CH 64
+#define CONV2_OUT_CH 128
+#define CONV2_IN_X CONV1_OUT_X
+#define CONV2_IN_Y CONV1_OUT_Y
+#define CONV2_IN_DIM 16
+#define CONV2_IN_CH CONV1_OUT_CH
+#define CONV2_S1_KX 3
+#define CONV2_S1_KY 3
+#define CONV2_S1_SX 2
+#define CONV2_S1_SY 1
+#define CONV2_S1_PX 1
+#define CONV2_S1_PY 1
+#define CONV2_OUT_X 16
+#define CONV2_OUT_Y 16
+#define CONV2_S_BIAS_LSHIFT 2
+#define CONV2_S_OUT_RSHIFT 5
+#define CONV2_E_BIAS_LSHIFT 4
+#define CONV2_E_OUT_RSHIFT 8
+
+#define CONV2_OUT_S_CH 16
+#define CONV2_OUT_E_CH 64
+#define CONV2_OUT_CH 128
+#define CONV2_IN_X CONV1_OUT_X
+#define CONV2_IN_Y CONV1_OUT_Y
+#define CONV2_IN_DIM 16
+#define CONV2_IN_CH CONV1_OUT_CH
+#define CONV2_S1_KX 3
+#define CONV2_S1_KY 3
+#define CONV2_S1_SX 2
+#define CONV2_S1_SY 1
+#define CONV2_S1_PX 1
+#define CONV2_S1_PY 1
+#define CONV2_OUT_X 16
+#define CONV2_OUT_Y 16
+#define CONV2_S_BIAS_LSHIFT 2
+#define CONV2_S_OUT_RSHIFT 5
+#define CONV2_E_BIAS_LSHIFT 4
+#define CONV2_E_OUT_RSHIFT 8
+
+#define CONV2_OUT_S_CH 16
+#define CONV2_OUT_E_CH 64
+#define CONV2_OUT_CH 128
+#define CONV2_IN_X CONV1_OUT_X
+#define CONV2_IN_Y CONV1_OUT_Y
+#define CONV2_IN_DIM 16
+#define CONV2_IN_CH CONV1_OUT_CH
+#define CONV2_S1_KX 3
+#define CONV2_S1_KY 3
+#define CONV2_S1_SX 2
+#define CONV2_S1_SY 1
+#define CONV2_S1_PX 1
+#define CONV2_S1_PY 1
+#define CONV2_OUT_X 16
+#define CONV2_OUT_Y 16
+#define CONV2_S_BIAS_LSHIFT 2
+#define CONV2_S_OUT_RSHIFT 5
+#define CONV2_E_BIAS_LSHIFT 4
+#define CONV2_E_OUT_RSHIFT 8
+
+#define CONV3_OUT_S_CH 16
+#define CONV3_OUT_E_CH 64
+#define CONV3_OUT_CH 128
+#define CONV3_IN_X CONV2_OUT_X
+#define CONV3_IN_Y CONV2_OUT_Y
+#define CONV3_IN_DIM 16
+#define CONV3_IN_CH CONV1_OUT_CH
+#define CONV3_DS_KX 3
+#define CONV3_DS_KY 3
+#define CONV3_DS_SX 2
+#define CONV3_DS_SY 2
+#define CONV3_DS_PX 1
+#define CONV3_DS_PY 1
+#define CONV3_OUT_X 16
+#define CONV3_OUT_Y 16
+#define CONV3_DS_BIAS_LSHIFT 2
+#define CONV3_DS_OUT_RSHIFT 4
+#define CONV3_PW_BIAS_LSHIFT 5
+#define CONV3_PW_OUT_RSHIFT 8
+
+#define CONV4_OUT_S_CH 32
+#define CONV4_OUT_E_CH 128
+#define CONV4_OUT_CH 256
+#define CONV4_IN_X 8
+#define CONV4_IN_Y 8
+#define CONV4_IN_DIM 8
+#define CONV4_IN_CH CONV1_OUT_CH
+#define CONV4_DS_KX 3
+#define CONV4_DS_KY 3
+#define CONV4_DS_SX 1
+#define CONV4_DS_SY 1
+#define CONV4_DS_PX 1
+#define CONV4_DS_PY 1
+#define CONV4_OUT_X CONV4_IN_X
+#define CONV4_OUT_Y CONV4_IN_Y
+#define CONV4_DS_BIAS_LSHIFT 3
+#define CONV4_DS_OUT_RSHIFT 5
+#define CONV4_PW_BIAS_LSHIFT 5
+#define CONV4_PW_OUT_RSHIFT 7
+
+#define CONV5_OUT_S_CH 32
+#define CONV5_OUT_E_CH 128
+#define CONV5_OUT_CH 256
+#define CONV5_IN_X CONV4_OUT_X
+#define CONV5_IN_Y CONV4_OUT_Y
+#define CONV5_IN_DIM 8
+#define CONV5_IN_CH CONV1_OUT_CH
+#define CONV5_DS_KX 3
+#define CONV5_DS_KY 3
+#define CONV5_DS_SX 2
+#define CONV5_DS_SY 2
+#define CONV5_DS_PX 1
+#define CONV5_DS_PY 1
+#define CONV5_OUT_X 8
+#define CONV5_OUT_Y 8
+#define CONV5_DS_BIAS_LSHIFT 3
+#define CONV5_DS_OUT_RSHIFT 5
+#define CONV5_PW_BIAS_LSHIFT 5
+#define CONV5_PW_OUT_RSHIFT 8
+
+#define CONV6_OUT_S_CH 48
+#define CONV6_OUT_E_CH 192
+#define CONV6_OUT_CH 384
+#define CONV6_IN_X CONV4_OUT_X
+#define CONV6_IN_Y CONV4_OUT_Y
+#define CONV6_IN_DIM 8
+#define CONV6_IN_CH CONV1_OUT_CH
+#define CONV6_DS_KX 3
+#define CONV6_DS_KY 3
+#define CONV6_DS_SX 2
+#define CONV6_DS_SY 2
+#define CONV6_DS_PX 1
+#define CONV6_DS_PY 1
+#define CONV6_OUT_X 8
+#define CONV6_OUT_Y 8
+#define CONV6_DS_BIAS_LSHIFT 3
+#define CONV6_DS_OUT_RSHIFT 5
+#define CONV6_PW_BIAS_LSHIFT 5
+#define CONV6_PW_OUT_RSHIFT 8
+
+#define CONV7_OUT_S_CH 48
+#define CONV7_OUT_E_CH 192
+#define CONV7_OUT_CH 384
+#define CONV7_IN_X CONV4_OUT_X
+#define CONV7_IN_Y CONV4_OUT_Y
+#define CONV7_IN_DIM 16
+#define CONV7_IN_CH CONV1_OUT_CH
+#define CONV7_DS_KX 3
+#define CONV7_DS_KY 3
+#define CONV7_DS_SX 2
+#define CONV7_DS_SY 2
+#define CONV7_DS_PX 1
+#define CONV7_DS_PY 1
+#define CONV7_OUT_X 8
+#define CONV7_OUT_Y 8
+#define CONV7_DS_BIAS_LSHIFT 3
+#define CONV7_DS_OUT_RSHIFT 5
+#define CONV7_PW_BIAS_LSHIFT 5
+#define CONV7_PW_OUT_RSHIFT 8
+
+#define CONV8_OUT_S_CH 64
+#define CONV8_OUT_E_CH 256
+#define CONV8_OUT_CH 512
+#define CONV8_IN_X CONV4_OUT_X
+#define CONV8_IN_Y CONV4_OUT_Y
+#define CONV8_IN_DIM 16
+#define CONV8_IN_CH CONV1_OUT_CH
+#define CONV8_DS_KX 3
+#define CONV8_DS_KY 3
+#define CONV8_DS_SX 2
+#define CONV8_DS_SY 2
+#define CONV8_DS_PX 1
+#define CONV8_DS_PY 1
+#define CONV8_OUT_X 8
+#define CONV8_OUT_Y 8
+#define CONV8_DS_BIAS_LSHIFT 3
+#define CONV8_DS_OUT_RSHIFT 5
+#define CONV8_PW_BIAS_LSHIFT 5
+#define CONV8_PW_OUT_RSHIFT 8
+
+#define CONV9_OUT_S_CH 64
+#define CONV9_OUT_E_CH 256
+#define CONV9_OUT_CH 512
+#define CONV9_IN_X 4
+#define CONV9_IN_Y 4
+#define CONV9_IN_DIM 4
+#define CONV9_IN_CH CONV1_OUT_CH
+#define CONV9_DS_KX 3
+#define CONV9_DS_KY 3
+#define CONV9_DS_SX 2
+#define CONV9_DS_SY 2
+#define CONV9_DS_PX 1
+#define CONV9_DS_PY 1
+#define CONV9_OUT_X 4
+#define CONV9_OUT_Y 4
+#define CONV9_DS_BIAS_LSHIFT 3
+#define CONV9_DS_OUT_RSHIFT 5
+#define CONV9_PW_BIAS_LSHIFT 5
+#define CONV9_PW_OUT_RSHIFT 8
+
+#define CONV10_IN_DIM 4
+#define CONV10_IN_CH 512
+#define CONV10_OUT_CH 10
+#define CONV10_OUT_DIM CONV10_IN_DIM
+
+
+#define OUT_DIM 10
+
+#define FINAL_FC_BIAS_LSHIFT 2
+#define FINAL_FC_OUT_RSHIFT 7
+
+#define IP1_IN_DIM 400
+#define IP1_OUT_DIM 10
+
+#define DATA_RSHIFT 0
+#define CONV1_BIAS_LSHIFT 0
+#define CONV1_OUT_RSHIFT 9
+#define CONV2_BIAS_LSHIFT 0
+#define CONV2_OUT_RSHIFT 9
+#define CONV3_BIAS_LSHIFT 0
+#define CONV3_OUT_RSHIFT 9
+#define CONV4_BIAS_LSHIFT 0
+#define CONV4_OUT_RSHIFT 9
+#define CONV5_BIAS_LSHIFT 0
+#define CONV5_OUT_RSHIFT 9
+#define CONV6_BIAS_LSHIFT 0
+#define CONV6_OUT_RSHIFT 9
+#define CONV7_BIAS_LSHIFT 0
+#define CONV7_OUT_RSHIFT 9
+#define CONV8_BIAS_LSHIFT 0
+#define CONV8_OUT_RSHIFT 9
+#define CONV9_BIAS_LSHIFT 0
+#define CONV9_OUT_RSHIFT 9
+#define IP1_BIAS_LSHIFT 3
+#define IP1_OUT_RSHIFT 5
+
+// For deep-reuse
+#define LSH_L 20
+#define N_SUB_VEC 5 
+#define LSH_H 5
+#define LSH_2_to_H 32
+
+// For deep-reuse
+#define LSH_L 20//48
+//#define N_SUB_VEC 5 
+#define LSH_H 5
+//#define LSH_2_to_H 32
+
+#define LSH_L2 16
+#define LSH_H2 11
+#define N_SUB_VEC 14 // 5*5* 16/16 = 25
+#define LSH_2_to_H 1024

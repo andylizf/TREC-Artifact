@@ -1,9 +1,10 @@
-import os
 import glob
-from setuptools import find_packages, setup
+import os
 
 import torch
-from torch.utils.cpp_extension import CUDA_HOME, CppExtension, CUDAExtension
+from setuptools import setup
+from torch.utils.cpp_extension import (CUDA_HOME, BuildExtension, CppExtension,
+                                       CUDAExtension)
 
 torch_ver = [int(x) for x in torch.__version__.split(".")[:2]]
 assert torch_ver >= [1, 3], "Requires PyTorch >= 1.3"
@@ -40,7 +41,7 @@ def get_extensions():
 
         CC = os.environ.get("CC", None)
         if CC is not None:
-            extra_compile_args["nvcc"].append("-ccbin={}".format(CC))
+            extra_compile_args["nvcc"].append(f"-ccbin={CC}")
 
     include_dirs = [extensions_dir]
 
@@ -62,5 +63,5 @@ setup(
     # version="0.0.1",
     python_requires=">=3.6",
     ext_modules=get_extensions(),
-    cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension},
+    cmdclass={"build_ext": BuildExtension},
 )

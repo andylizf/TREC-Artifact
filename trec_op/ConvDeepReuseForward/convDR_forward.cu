@@ -21,7 +21,7 @@
 void LSH_projection(
     cudaStream_t &stream, 
     const at::Tensor &input_row,
-    at::Tensor &random_vectors,     // [param_L, param_H]
+    const at::Tensor &random_vectors,     // [param_L, param_H]
     at::Tensor &vector_ids, 
     at::Tensor &buckets_count,
     const int64_t param_L,
@@ -31,7 +31,7 @@ void LSH_projection(
 void clustering_inputs(
     cudaStream_t &stream, 
     const at::Tensor &inputs,
-    at::Tensor &random_vectors,
+    const at::Tensor &random_vectors,
     at::Tensor &vector_ids,
     at::Tensor &buckets_centroids,
     at::Tensor &buckets_count,
@@ -48,10 +48,22 @@ void clustering_inputs(
     const int64_t num_rows);
 
 
-std::vector<at::Tensor> preprocess_inputs(
+struct CentroidsInfo {
+    at::Tensor centroids_for_compute;
+    at::Tensor vector_index;
+    at::Tensor buckets_stats;
+    at::Tensor buckets_count;
+    at::Tensor input_row; // only for training
+    at::Tensor buckets_index; // only for training
+    at::Tensor buckets_index_inv; // only for training
+    at::Tensor vector_ids; // only for training
+    at::Tensor remain_ratio; // only for inference
+};
+
+CentroidsInfo preprocess_inputs(
     cudaStream_t &stream, 
     const at::Tensor &inputs,
-    at::Tensor &random_vectors,
+    const at::Tensor &random_vectors,
     const int64_t kernel_height,
     const int64_t kernel_width,
     const int64_t pad_height,
@@ -65,10 +77,10 @@ std::vector<at::Tensor> preprocess_inputs(
 
 
 std::vector<at::Tensor> conv_deep_reuse_forward(
-        const at::Tensor inputs,
-        const at::Tensor weights,
-        const at::Tensor bias,
-        at::Tensor random_vectors,
+        const at::Tensor& inputs,
+        const at::Tensor& weights,
+        const at::Tensor& bias,
+        const at::Tensor& random_vectors,
         const int64_t pad_height,
         const int64_t pad_width,
         const int64_t stride_height,
@@ -78,6 +90,15 @@ std::vector<at::Tensor> conv_deep_reuse_forward(
         const bool do_bias,
         const bool is_training,
         const bool print_rc) {
+
+    // printf("conv_deep_reuse_forward\n");
+    // printf("inputs.size() = %d, %d, %d, %d\n", inputs.size(0), inputs.size(1), inputs.size(2), inputs.size(3));
+    // printf("weights.size() = %d, %d, %d, %d\n", weights.size(0), weights.size(1), weights.size(2), weights.size(3));
+    // printf("bias.size() = %d\n", bias.size(0));
+    // printf("random_vectors.size() = %d, %d\n", random_vectors.size(0), random_vectors.size(1));
+    // printf("pad_height = %d, pad_width = %d, stride_height = %d, stride_width = %d\n", pad_height, pad_width, stride_height, stride_width);
+    // printf("param_L = %d, param_H = %d\n", param_L, param_H);
+    // printf("do_bias = %d, is_training = %d, print_rc = %d\n", do_bias, is_training, print_rc);
 
     CHECK_INPUT(inputs);
     CHECK_INPUT(weights);
@@ -108,12 +129,26 @@ std::vector<at::Tensor> conv_deep_reuse_forward(
     // information need for inference/training
     // val: {centroids_for_compute, vector_index, buckets_stats}
     // train: {centroids_for_compute, vector_index, buckets_stats, buckets_count_out}
-    std::vector<at::Tensor> centroids_info = preprocess_inputs(stream, inputs, random_vectors, kernel_height, kernel_width, pad_height, pad_width, 
-                                                            stride_height, stride_width, param_L, param_H, is_training, print_rc);
+    // std::vector<at::Tensor> centroids_info = preprocess_inputs(stream, inputs, random_vectors, kernel_height, kernel_width, pad_height, pad_width, 
+    //                                                         stride_height, stride_width, param_L, param_H, is_training, print_rc);
      
-    at::Tensor centroids_for_compute = centroids_info[0];
-    at::Tensor vector_index = centroids_info[1];
-    at::Tensor buckets_stats = centroids_info[2];
+    // at::Tensor centroids_for_compute = centroids_info[0];
+    // at::Tensor vector_index = centroids_info[1];
+    // at::Tensor buckets_stats = centroids_info[2];
+
+    const auto& [
+        centroids_for_compute,
+        vector_index,
+        buckets_stats,
+        buckets_count,
+        input_row,
+        buckets_index,
+        buckets_index_inv,
+        vector_ids,
+        remain_ratio
+    ] = preprocess_inputs(stream, inputs, random_vectors,
+        kernel_height, kernel_width, pad_height, pad_width, stride_height, stride_width, param_L, param_H, is_training, print_rc);
+
     int64_t max_buckets = buckets_stats.data_ptr<int>()[1];
 
     at::Tensor weights_matrices = weights.reshape({nOutputPlane, row_length}).t().reshape({n_matrices, param_L, nOutputPlane});
@@ -128,15 +163,10 @@ std::vector<at::Tensor> conv_deep_reuse_forward(
         bias_add_cuda(stream, reconstructed_output, bias);
 
     if (is_training) { 
-        at::Tensor buckets_count = centroids_info[3];
-        at::Tensor input_row = centroids_info[4];
-        at::Tensor buckets_index = centroids_info[5];
-        at::Tensor buckets_index_inv = centroids_info[6];
-        at::Tensor vector_ids = centroids_info[7];
         return {reconstructed_output, centroids_for_compute, vector_index, vector_ids, buckets_count, buckets_index, buckets_index_inv, input_row};
     }
     else {
-        return {reconstructed_output, centroids_info[3]};
+        return {reconstructed_output, buckets_count};
     }
     c10::cuda::CUDACachingAllocator::emptyCache();
 }
@@ -145,7 +175,7 @@ std::vector<at::Tensor> conv_deep_reuse_forward(
 void LSH_projection( 
         cudaStream_t &stream, 
         const at::Tensor &input_row,    // L sub-matrices, [n_matrices * num_rows, L]
-        at::Tensor &random_vectors,     // [param_L, param_H]
+        const at::Tensor &random_vectors,     // [param_L, param_H]
         at::Tensor &vector_ids,
         at::Tensor &buckets_count,
         const int64_t param_L,
@@ -160,7 +190,7 @@ void LSH_projection(
 void clustering_inputs(
         cudaStream_t &stream, 
         const at::Tensor &inputs,
-        at::Tensor &random_vectors,
+        const at::Tensor &random_vectors,
         at::Tensor &vector_ids,
         at::Tensor &buckets_centroids,
         at::Tensor &buckets_count,
@@ -188,10 +218,10 @@ void clustering_inputs(
 }
 
 
-std::vector<at::Tensor> preprocess_inputs(
+CentroidsInfo preprocess_inputs(
         cudaStream_t &stream, 
         const at::Tensor &inputs,
-        at::Tensor &random_vectors,
+        const at::Tensor &random_vectors,
         const int64_t kernel_height,
         const int64_t kernel_width,
         const int64_t pad_height,
@@ -231,16 +261,21 @@ std::vector<at::Tensor> preprocess_inputs(
     at::Tensor buckets_index = at::zeros({n_matrices, total_buckets}, inputs.options().dtype(at::kInt));
     at::Tensor buckets_stats = at::zeros({2}, inputs.options().dtype(at::kInt));
     index_bucket_cuda(stream, buckets_count, buckets_index, buckets_stats);
-    buckets_stats = buckets_stats.cpu ();  // total buckets number & max buckets number of each matrices
+
+    buckets_stats = buckets_stats.cpu();  // total buckets number & max buckets number of each matrices
  
     // std::cout << num_rows << std::endl;  // 78400 
     // if (print_rc) {
-        buckets_stats = buckets_stats.cpu();
-        int64_t sum_buckets = buckets_stats.data_ptr<int>()[0];
+        auto buckets_stats_ptr = buckets_stats.data_ptr<int>();
+        int64_t sum_buckets = buckets_stats_ptr[0],
+                max_buckets = buckets_stats_ptr[1];
+        // int64_t sum_buckets = buckets_stats.select(0, 0).item<int64_t>(),
+        //         max_buckets = buckets_stats.select(0, 1).item<int64_t>();
+
+        // int64_t sum_buckets = buckets_stats.data_ptr<int>()[0];
         int64_t num_vectors = num_rows * n_matrices;
         double rc = (double)sum_buckets / (double)num_vectors;
-        at::Tensor remain_ratio = at::zeros(1, inputs.options());
-        remain_ratio[0] = rc;
+        at::Tensor remain_ratio = at::tensor({rc}, inputs.options());
         // printf("remaining ratio: %f\n", rc);
         // std::cout << remain_ratio << std::endl;
     // }
@@ -248,7 +283,7 @@ std::vector<at::Tensor> preprocess_inputs(
     // buckets_stats = at::zeros({2}, at::kInt);
     // buckets_stats[1] = 1600;
 
-    int64_t max_buckets = buckets_stats.data_ptr<int>()[1];
+    // int64_t max_buckets = buckets_stats.data_ptr<int>()[1];
     // std::cout << "max_buckets = " << max_buckets << std::endl;
     at::Tensor centroids_for_compute = at::zeros({n_matrices, max_buckets, param_L}, inputs.options());
     div_remap_centroids_cuda(stream, buckets_centroids, buckets_index, buckets_count, centroids_for_compute);
@@ -266,8 +301,24 @@ std::vector<at::Tensor> preprocess_inputs(
         at::Tensor buckets_count_out = at::zeros({n_matrices, max_buckets}, inputs.options().dtype(at::kInt));
         at::Tensor buckets_index_inv = at::zeros({n_matrices, max_buckets}, inputs.options().dtype(at::kInt));
         get_buckets_count_out_cuda(stream, buckets_index, buckets_index_inv, buckets_count, buckets_count_out);
-        return {centroids_for_compute, vector_index, buckets_stats, buckets_count_out, input_row, buckets_index, buckets_index_inv, vector_ids};
+        // return {centroids_for_compute, vector_index, buckets_stats, buckets_count_out, input_row, buckets_index, buckets_index_inv, vector_ids};
+        return {
+            .centroids_for_compute = std::move(centroids_for_compute),
+            .vector_index = std::move(vector_index),
+            .buckets_stats = std::move(buckets_stats),
+            .buckets_count = std::move(buckets_count_out),
+            .input_row = std::move(input_row),
+            .buckets_index = std::move(buckets_index),
+            .buckets_index_inv = std::move(buckets_index_inv),
+            .vector_ids = std::move(vector_ids)
+        };
     }
  
-    return {centroids_for_compute, vector_index, buckets_stats, remain_ratio};
+    // return {centroids_for_compute, vector_index, buckets_stats, remain_ratio};
+    return {
+        .centroids_for_compute = centroids_for_compute,
+        .vector_index = vector_index,
+        .buckets_stats = buckets_stats,
+        .remain_ratio = remain_ratio
+    };
 }

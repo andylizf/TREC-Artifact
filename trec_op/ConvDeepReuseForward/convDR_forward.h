@@ -1,10 +1,10 @@
 #pragma once
 #include <torch/extension.h>
 
-std::vector<at::Tensor> conv_deep_reuse_forward(const at::Tensor input,
-                                                const at::Tensor weights,
-                                                const at::Tensor bias,
-                                                at::Tensor random_vectors,
+std::vector<at::Tensor> conv_deep_reuse_forward(const at::Tensor& input,
+                                                const at::Tensor& weights,
+                                                const at::Tensor& bias,
+                                                const at::Tensor& random_vectors,
                                                 const int64_t pad_height,
                                                 const int64_t pad_width,
                                                 const int64_t stride_height,

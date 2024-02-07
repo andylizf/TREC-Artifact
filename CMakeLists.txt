@@ -1,83 +1,81 @@
-# Set the minimum version of CMake that can be used
 cmake_minimum_required(VERSION 3.1)
 
 # ! set `export TORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0"` before running cmake
 # see https://github.com/pytorch/pytorch/issues/113948
 
-# Set the project name
 project(ProfilingProject)
-
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug)
+    set(CMAKE_BUILD_TYPE Debug)
 endif()
+
+option(USE_NVTX "Enable NVTX profiling" OFF)
 
 # Specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# Set CUDA related paths
 set(CUDA_TOOLKIT_ROOT_DIR "/home/lizhifei/miniconda3/envs/trec")
 set(CUDA_INCLUDE_DIRS "/home/lizhifei/miniconda3/envs/trec/include")
-
 set(CMAKE_CUDA_COMPILER "/home/lizhifei/miniconda3/envs/trec/bin/nvcc")
-set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
-# # Ensure CMake can find PyTorch and other required packages in your Conda environment
+
+# Ensure CMake can find PyTorch and other required packages in your Conda environment
 list(APPEND CMAKE_PREFIX_PATH "/home/lizhifei/miniconda3/envs/trec")
 
+# Find CUDA
 find_package(CUDA REQUIRED)
 include_directories(${CUDA_INCLUDE_DIRS})
 
-# SET(GCC_COVERAGE_LINK_FLAGS    "-lrt")
-
-
-add_compile_options(-lnvToolsExt -export-dynamic -fPIC -finstrument-functions -ldl -lnvToolsExt)
-
+# Find PyTorch
 set(Torch_DIR /home/lizhifei/miniconda3/envs/trec/lib/python3.12/site-packages/torch/share/cmake/Torch)
 find_package(Torch REQUIRED)
-
-add_executable(prof prof.cpp 
-    inst_nvtx.o
-    /home/lizhifei/TREC-Artifact/build/temp.linux-x86_64-cpython-312/home/lizhifei/TREC-Artifact/trec_op/ConvDeepReuseBackward/convDR_backward.o
-    /home/lizhifei/TREC-Artifact/build/temp.linux-x86_64-cpython-312/home/lizhifei/TREC-Artifact/trec_op/ConvDeepReuseForward/convDR_forward.o
-)
-
-set_source_files_properties(
-    inst_nvtx.o
-    /home/lizhifei/TREC-Artifact/build/temp.linux-x86_64-cpython-312/home/lizhifei/TREC-Artifact/trec_op/ConvDeepReuseBackward/convDR_backward.o
-    /home/lizhifei/TREC-Artifact/build/temp.linux-x86_64-cpython-312/home/lizhifei/TREC-Artifact/trec_op/ConvDeepReuseForward/convDR_forward.o
-    PROPERTIES
-    EXTERNAL_OBJECT true
-    GENERATED true
-)
-
-# Include directories for PyTorch and your own include directory
-target_include_directories(prof PRIVATE
-    ${TORCH_INCLUDE_DIRS}
-    /home/lizhifei/miniconda3/envs/trec/include
-    /home/lizhifei/TREC-Artifact/trec_op
-)
-
-set(PYTHON_INCLUDE_DIRS "/home/lizhifei/miniconda3/envs/trec/include/python3.12")
-include_directories(/home/lizhifei/miniconda3/envs/trec/include/python3.12)
 
 # Find Pybind11
 find_package(pybind11 REQUIRED)
 
-# Link against Pybind11
-target_link_libraries(prof pybind11::pybind11)
+if(USE_NVTX)
+    # Compile inst_nvtx.cpp as a separate object
+    add_library(inst_nvtx OBJECT inst_nvtx.cpp)
+    target_include_directories(inst_nvtx PRIVATE ${CUDA_INCLUDE_DIRS})
+    target_compile_options(inst_nvtx PRIVATE -fPIC -export-dynamic)
 
+    # Create the executable
+    add_executable(prof prof.cpp 
+        $<TARGET_OBJECTS:inst_nvtx>
+        /home/lizhifei/TREC-Artifact/build/temp.linux-x86_64-cpython-312/home/lizhifei/TREC-Artifact/trec_op/ConvDeepReuseBackward/convDR_backward.o
+        /home/lizhifei/TREC-Artifact/build/temp.linux-x86_64-cpython-312/home/lizhifei/TREC-Artifact/trec_op/ConvDeepReuseForward/convDR_forward.o
+    )
 
-find_package(Python REQUIRED)
+    # Link libraries to the executable
+    link_directories(/home/lizhifei/miniconda3/envs/trec/lib)
 
-target_link_libraries(prof ${PYTHON_LIBRARIES})
+    target_link_libraries(prof PRIVATE 
+        ${TORCH_LIBRARIES} 
+        pybind11::pybind11
+        ${CUDA_LIBRARIES} 
+        /home/lizhifei/miniconda3/envs/trec/lib/libnvToolsExt.so 
+        dl
+        /home/lizhifei/miniconda3/envs/trec/lib/libpython3.12.so
+    )
 
-# Link against the PyTorch libraries
-target_link_libraries(prof "${TORCH_LIBRARIES}")
+    # Additional compiler options
+    target_compile_options(prof PRIVATE -export-dynamic -fPIC -finstrument-functions)
 
-# This is required for PyTorch
-set_property(TARGET prof PROPERTY CXX_STANDARD 17)
+else()
+    # Create the executable
+    add_executable(prof prof.cpp 
+        /home/lizhifei/TREC-Artifact/build/temp.linux-x86_64-cpython-312/home/lizhifei/TREC-Artifact/trec_op/ConvDeepReuseBackward/convDR_backward.o
+        /home/lizhifei/TREC-Artifact/build/temp.linux-x86_64-cpython-312/home/lizhifei/TREC-Artifact/trec_op/ConvDeepReuseForward/convDR_forward.o
+    )
 
-# If you need OpenMP (it was in your original compile command)
-find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(prof OpenMP::OpenMP_CXX)
+    # Link libraries to the executable
+    link_directories(/home/lizhifei/miniconda3/envs/trec/lib)
+
+    target_link_libraries(prof PRIVATE 
+        ${TORCH_LIBRARIES} 
+        pybind11::pybind11
+        ${CUDA_LIBRARIES} 
+        /home/lizhifei/miniconda3/envs/trec/lib/libpython3.12.so
+    )
+
 endif()

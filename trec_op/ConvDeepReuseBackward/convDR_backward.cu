@@ -148,6 +148,32 @@ std::vector<at::Tensor> conv_deep_reuse_backward(
         const float sigma,
         const bool do_bias) { 
 
+    // printf("conv_deep_reuse_backward\n");
+    // printf("input_row = %d, %d, %d\n", input_row.size(0), input_row.size(1), input_row.size(2));
+    // printf("inputCentroids = %d, %d, %d\n", inputCentroids.size(0), inputCentroids.size(1), inputCentroids.size(2));
+    // printf("weights = %d, %d, %d, %d\n", weights.size(0), weights.size(1), weights.size(2), weights.size(3));
+    // printf("gradOutput = %d, %d, %d, %d\n", gradOutput.size(0), gradOutput.size(1), gradOutput.size(2), gradOutput.size(3));
+    // printf("vector_index = %d, %d\n", vector_index.size(0), vector_index.size(1));
+    // std::cout << "vector_index = " << vector_index << std::endl;
+    // printf("vector_ids = %d, %d\n", vector_ids.size(0), vector_ids.size(1));
+    // std::cout << "vector_ids = " << vector_ids << std::endl;
+    // printf("buckets_count = %d, %d\n", buckets_count.size(0), buckets_count.size(1));
+    // std::cout << "buckets_count = " << buckets_count << std::endl;
+    // printf("buckets_index = %d, %d\n", buckets_index.size(0), buckets_index.size(1));
+    // std::cout << "buckets_index = " << buckets_index << std::endl;
+    // printf("buckets_index_inv = %d, %d\n", buckets_index_inv.size(0), buckets_index_inv.size(1));
+    // std::cout << "buckets_index_inv = " << buckets_index_inv << std::endl;
+    // printf("random_vectors = %d, %d\n", random_vectors.size(0), random_vectors.size(1));
+    // printf("input_height = %d\n", input_height);
+    // printf("input_width = %d\n", input_width);
+    // printf("pad_height = %d\n", pad_height);
+    // printf("pad_width = %d\n", pad_width);
+    // printf("stride_height = %d\n", stride_height);
+    // printf("stride_width = %d\n", stride_width);
+    // printf("param_H = %d\n", param_H);
+    // printf("alpha = %f\n", alpha);
+    // printf("sigma = %f\n", sigma);
+    // printf("do_bias = %d\n", do_bias);
 
     CHECK_INPUT(input_row);
     CHECK_INPUT(gradOutput);

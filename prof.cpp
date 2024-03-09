@@ -2,10 +2,10 @@
 #include <torch/extension.h>
 #include <cuda.h>
 
-std::vector<at::Tensor> conv_deep_reuse_forward(const at::Tensor input,
-                                                const at::Tensor weights,
-                                                const at::Tensor bias,
-                                                at::Tensor random_vectors,
+std::vector<at::Tensor> conv_deep_reuse_forward(const at::Tensor& input,
+                                                const at::Tensor& weights,
+                                                const at::Tensor& bias,
+                                                const at::Tensor& random_vectors,
                                                 const int64_t pad_height,
                                                 const int64_t pad_width,
                                                 const int64_t stride_height,
@@ -40,69 +40,118 @@ std::vector<at::Tensor> conv_deep_reuse_backward(
         const float sigma,
         const bool do_bias);
 
+at::Tensor input, weights, bias, random_vectors, input_row, inputCentroids, gradOutput, vector_index, vector_ids, buckets_count, buckets_index, buckets_index_inv;
+int64_t pad_height, pad_width, stride_height, stride_width, param_L, param_H, input_height, input_width;
+bool do_bias, is_training, print_rc;
+float alpha, sigma;
+
+void cifar_params() {
+    input = torch::rand({10, 16, 16, 16}).to(torch::kCUDA);
+    weights = torch::rand({64, 16, 3, 3}).to(torch::kCUDA);
+    bias = torch::rand({64}).to(torch::kCUDA);
+    random_vectors = torch::rand({48, 5}).to(torch::kCUDA);
+    pad_height = 1;
+    pad_width = 1;
+    stride_height = 1;
+    stride_width = 1;
+    param_L = 48;
+    param_H = 5;
+    do_bias = true;
+    is_training = true;
+    print_rc = false;
+
+    input_row = torch::rand({3, 2560, 48}).to(torch::kCUDA);
+    inputCentroids = torch::rand({3, 32, 48}).to(torch::kCUDA);
+    gradOutput = torch::rand({10, 64, 16, 16}).to(torch::kCUDA);
+    vector_index = torch::rand({3, 2560}).to(torch::kCUDA);
+
+    auto options = torch::TensorOptions().dtype(torch::kInt).device(torch::kCUDA);
+    vector_index = torch::tensor(
+        #include "/home/lizhifei/TREC-Artifact/vector_index.txt"
+    , options);
+    vector_ids = torch::tensor(
+        #include "/home/lizhifei/TREC-Artifact/vector_ids.txt"
+    , options);
+    buckets_count = torch::tensor({
+        {86, 58, 257, 429, 1, 26, 7, 318, 307, 206, 261, 5, 1, 43, 27, 52, 23, 184, 91, 3, 21, 14, 69, 38, 1, 23, 9, 0, 0, 0, 0, 0},
+        {81, 99, 316, 486, 3, 5, 31, 12, 163, 79, 493, 219, 6, 6, 39, 25, 82, 27, 77, 71, 1, 1, 5, 2, 49, 28, 88, 41, 11, 2, 9, 3},
+        {70, 119, 177, 190, 8, 28, 30, 37, 117, 273, 417, 174, 33, 70, 69, 19, 123, 55, 249, 140, 8, 3, 1, 4, 33, 46, 31, 24, 2, 2, 6, 2}
+    }, options);
+    buckets_index = torch::tensor({
+        {0, 1, 2, 3, 4, -1, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, -1, -1, 19, -1, 20, 21, 22, 23, 24, -1, 25, 26},
+        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31},
+        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
+    }, options);
+    buckets_index_inv = torch::tensor({
+        {0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 24, 25, 26, 27, 28, 30, 31, 0, 0, 0, 0, 0},
+        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31},
+        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
+    }, options);
+    input_height = 16;
+    input_width = 16;
+    alpha = 10000;
+    sigma = 0.00625;
+}
+
+void resnet_params()
+{
+    input = torch::rand({100, 3, 224, 224}).to(torch::kCUDA);
+    weights = torch::rand({64, 3, 7, 7}).to(torch::kCUDA);
+    bias = torch::rand({64}).to(torch::kCUDA);
+    random_vectors = torch::rand({49, 5}).to(torch::kCUDA);
+    pad_height = 3;
+    pad_width = 3;
+    stride_height = 2;
+    stride_width = 2;
+    param_L = 49;
+    param_H = 5;
+    do_bias = true;
+    is_training = true;
+    print_rc = false;
+
+    input_row = torch::rand({3, 2560, 48}).to(torch::kCUDA);
+    inputCentroids = torch::rand({3, 32, 48}).to(torch::kCUDA);
+    gradOutput = torch::rand({10, 64, 112, 112}).to(torch::kCUDA);
+    vector_index = torch::rand({3, 2560}).to(torch::kCUDA);
+
+    auto options = torch::TensorOptions().dtype(torch::kInt).device(torch::kCUDA);
+    vector_index = torch::tensor(
+        #include "/home/lizhifei/TREC-Artifact/vector_index.txt"
+    , options);
+    vector_ids = torch::tensor(
+        #include "/home/lizhifei/TREC-Artifact/vector_ids.txt"
+    , options);
+    buckets_count = torch::tensor({
+        {86, 58, 257, 429, 1, 26, 7, 318, 307, 206, 261, 5, 1, 43, 27, 52, 23, 184, 91, 3, 21, 14, 69, 38, 1, 23, 9, 0, 0, 0, 0, 0},
+        {81, 99, 316, 486, 3, 5, 31, 12, 163, 79, 493, 219, 6, 6, 39, 25, 82, 27, 77, 71, 1, 1, 5, 2, 49, 28, 88, 41, 11, 2, 9, 3},
+        {70, 119, 177, 190, 8, 28, 30, 37, 117, 273, 417, 174, 33, 70, 69, 19, 123, 55, 249, 140, 8, 3, 1, 4, 33, 46, 31, 24, 2, 2, 6, 2}
+    }, options);
+    buckets_index = torch::tensor({
+        {0, 1, 2, 3, 4, -1, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, -1, -1, 19, -1, 20, 21, 22, 23, 24, -1, 25, 26},
+        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31},
+        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
+    }, options);
+    buckets_index_inv = torch::tensor({
+        {0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 24, 25, 26, 27, 28, 30, 31, 0, 0, 0, 0, 0},
+        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31},
+        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
+    }, options);
+    input_height = 224;
+    input_width = 224;
+    alpha = 10000;
+    sigma = 0.00625;
+}
+
 int main()
 {
     if (!torch::cuda::is_available()) {
         std::cerr << "CUDA is not available. Please check your configuration." << std::endl;
         return 1;
     }
-
     std::cout << "This file is used to profile the performance of the ConvDeepReuseBackward and ConvDeepReuseForward." << std::endl;    
 
-// this will fail
-    // at::Tensor input = torch::rand({20, 3, 1024, 1024}).to(torch::kCUDA);
-    // at::Tensor weights = torch::rand({20, 3, 5, 5}).to(torch::kCUDA);
-    // at::Tensor bias = torch::rand({1}).to(torch::kCUDA);
-    // at::Tensor random_vectors = torch::rand({5, 5}).to(torch::kCUDA);
+    resnet_params();
 
-    /*
-        cifar
-        conv_deep_reuse_forward
-            inputs.size() = 10, 16, 16, 16
-            weights.size() = 64, 16, 3, 3
-            bias.size() = 64
-            random_vectors.size() = 48, 5
-            pad_height = 1, pad_width = 1, stride_height = 1, stride_width = 1
-            param_L = 48, param_H = 5
-            do_bias = 1, is_training = 1, print_rc = 0
-        conv_deep_reuse_backward
-            input_row = 3, 2560, 48
-            inputCentroids = 3, 32, 48
-            weights = 64, 16, 3, 3
-            gradOutput = 10, 64, 16, 16
-            vector_index = 3, 2560
-            vector_ids = 3, 2560
-            buckets_count = 3, 32
-            buckets_index = 3, 32
-            buckets_index_inv = 3, 32
-            random_vectors = 48, 5
-            input_height = 16
-            input_width = 16
-            pad_height = 1
-            pad_width = 1
-            stride_height = 1
-            stride_width = 1
-            param_H = 5
-            alpha = 10000.000000
-            sigma = 0.006250
-            do_bias = 1  
-    */
-    constexpr int batch_size = 10240;
-
-    at::Tensor input = torch::rand({batch_size, 16, 16, 16}).to(torch::kCUDA);
-    at::Tensor weights = torch::rand({64, 16, 3, 3}).to(torch::kCUDA);
-    at::Tensor bias = torch::rand({64}).to(torch::kCUDA);
-    at::Tensor random_vectors = torch::rand({48, 5}).to(torch::kCUDA);
-
-    int64_t pad_height = 1;
-    int64_t pad_width = 1;
-    int64_t stride_height = 1;
-    int64_t stride_width = 1;
-    int64_t param_L = 48;
-    int64_t param_H = 5;
-    bool do_bias = true;
-    bool is_training = true;
-    bool print_rc = false;
     auto res = conv_deep_reuse_forward(
         input,
         weights,
@@ -118,58 +167,26 @@ int main()
         is_training,
         print_rc
     );
-
-    at::Tensor input_row = torch::rand({3, 2560, 48}).to(torch::kCUDA);
-    at::Tensor inputCentroids = torch::rand({3, 32, 48}).to(torch::kCUDA);
-    at::Tensor gradOutput = torch::rand({batch_size, 64, 16, 16}).to(torch::kCUDA);
-/*
-*/
-    auto options = torch::TensorOptions().dtype(torch::kInt).device(torch::kCUDA);
-    at::Tensor vector_index = torch::tensor(
-        #include "/home/lizhifei/TREC-Artifact/vector_index.txt"
-    , options);
-    at::Tensor vector_ids = torch::tensor(
-        #include "/home/lizhifei/TREC-Artifact/vector_ids.txt"
-    , options);
-    at::Tensor buckets_count = torch::tensor({
-        {86, 58, 257, 429, 1, 26, 7, 318, 307, 206, 261, 5, 1, 43, 27, 52, 23, 184, 91, 3, 21, 14, 69, 38, 1, 23, 9, 0, 0, 0, 0, 0},
-        {81, 99, 316, 486, 3, 5, 31, 12, 163, 79, 493, 219, 6, 6, 39, 25, 82, 27, 77, 71, 1, 1, 5, 2, 49, 28, 88, 41, 11, 2, 9, 3},
-        {70, 119, 177, 190, 8, 28, 30, 37, 117, 273, 417, 174, 33, 70, 69, 19, 123, 55, 249, 140, 8, 3, 1, 4, 33, 46, 31, 24, 2, 2, 6, 2}
-    }, options);
-    at::Tensor buckets_index = torch::tensor({
-        {0, 1, 2, 3, 4, -1, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, -1, -1, 19, -1, 20, 21, 22, 23, 24, -1, 25, 26},
-        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31},
-        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
-    }, options);
-    at::Tensor buckets_index_inv = torch::tensor({
-        {0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 24, 25, 26, 27, 28, 30, 31, 0, 0, 0, 0, 0},
-        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31},
-        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
-    }, options);
-    int64_t input_height = 16;
-    int64_t input_width = 16;
-    float alpha = 10000;
-    float sigma = 0.00625;
-    auto res2 = conv_deep_reuse_backward(
-        input_row,
-        inputCentroids,
-        weights,
-        gradOutput,
-        vector_index,
-        vector_ids,
-        buckets_count,
-        buckets_index,
-        buckets_index_inv,
-        random_vectors,
-        input_height,
-        input_width,
-        pad_height,
-        pad_width,
-        stride_height,
-        stride_width,
-        param_H,
-        alpha,
-        sigma,
-        do_bias
-    );
+    // auto res2 = conv_deep_reuse_backward(
+    //     input_row,
+    //     inputCentroids,
+    //     weights,
+    //     gradOutput,
+    //     vector_index,
+    //     vector_ids,
+    //     buckets_count,
+    //     buckets_index,
+    //     buckets_index_inv,
+    //     random_vectors,
+    //     input_height,
+    //     input_width,
+    //     pad_height,
+    //     pad_width,
+    //     stride_height,
+    //     stride_width,
+    //     param_H,
+    //     alpha,
+    //     sigma,
+    //     do_bias
+    // );
 }

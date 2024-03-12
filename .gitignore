@@ -165,6 +165,7 @@ cython_debug/
 examples/EXP
 data/
 *.sqlite
+profile-build/*
 
 # CUDA Profiling
 *.nsys-rep

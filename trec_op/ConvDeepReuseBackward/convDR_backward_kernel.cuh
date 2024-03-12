@@ -79,18 +79,18 @@ void get_gradOutputCentroids_add_cuda(
 
     AT_DISPATCH_FLOATING_TYPES(gradOutput_mat.scalar_type(), "get_gradOutputCentroids_add_cuda", ([&] {
         get_gradOutputCentroids_add_cuda_kernel<scalar_t>
-        <<<GET_BLOCKS(num_rows * n_matrices), CUDA_NUM_THREADS, 0, stream>>>(
-            vector_index.data_ptr<int>(),
-            gradOutput_mat.data_ptr<scalar_t>(),
-            gradOutput_centroids.data_ptr<scalar_t>(),
-            max_buckets,
-            n_output_plane,
-            num_rows,
-            n_matrices);
+            <<<GET_BLOCKS(num_rows * n_matrices), CUDA_NUM_THREADS, 0, stream>>>(
+                vector_index.data_ptr<int>(),
+                gradOutput_mat.data_ptr<scalar_t>(),
+                gradOutput_centroids.data_ptr<scalar_t>(),
+                max_buckets,
+                n_output_plane,
+                num_rows,
+                n_matrices);
     }));
+    // ! fixme: cuda memory error
     MY_CUDA_CHECK(cudaGetLastError());
 }
-
 
 template <typename scalar_t>
 __global__ void get_gradOutputCentroids_div_cuda_kernel(

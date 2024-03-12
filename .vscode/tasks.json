@@ -1,0 +1,46 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Clean Build",
+      "type": "shell",
+      // "command": "rm -rf build/temp.linux-x86_64-cpython-312 && python setup.py install",
+      "command": "python setup.py install",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run CMake",
+      "type": "shell",
+      "command": "cmake .. -DUSE_NVTX=ON",
+      "options": {
+        "cwd": "${workspaceFolder}/build"
+      },
+      "dependsOn": "Clean Build",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Make",
+      "type": "shell",
+      "command": "make",
+      "options": {
+        "cwd": "${workspaceFolder}/build"
+      },
+      "dependsOn": "Run CMake",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Profile with Nsight Systems",
+      "type": "shell",
+      "command": "nsys profile ./prof",
+      "options": {
+        "cwd": "${workspaceFolder}/build"
+      },
+      "dependsOn": "Make",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

@@ -307,7 +307,7 @@ __global__ void get_Power_kernel(
             return;
         // int64_t count = buckets_count[matrix_id * max_buckets + bucket_id];
 
-        // for(int64_t vid = 0; vid < num_rows; vid++){
+        // for (int64_t vid = 0; vid < num_rows; vid++) {
         //     // gradIndex[matrix_id * max_buckets * num_rows + bucket_id * num_rows + vid] /= count;
         //     scalar_t value = vector_index[matrix_id * num_rows + vid] / (bucket + 1.0) - 1;
         //     // if(bucket == 598 && n_matrices==0)

@@ -95,11 +95,13 @@ __global__ void get_id_count_cuda_kernel(
     int* buckets_count,
     ID_DATATYPE* vector_ids)
 {
-
+    // CUDA_1D_KERNEL_LOOP see https://stackoverflow.com/questions/39470116/tensorflow-what-does-index-denote-in-cuda-1d-kernel-loopindex-nthreads-op-us
+    // is to ensure that even if the number of elements is more than the number of threads, each thread can process multiple elements
+    // i.e., each thread will be responsible for the elements of index % threads_num == thread_id
     CUDA_1D_KERNEL_LOOP(index, n)
     {
         const scalar_t* vector_ptr = hashed_vectors + index * vector_len;
-        ID_DATATYPE id = 0;
+        ID_DATATYPE id = 0; // a vector_len bit integer
 #pragma unroll
         for (int i = 0; i < vector_len; i++) {
             if (vector_ptr[i] > 0) {
@@ -110,7 +112,7 @@ __global__ void get_id_count_cuda_kernel(
         }
         vector_ids[index] = id;
 
-        int64_t matrix_id = index / num_rows;
+        int64_t matrix_id = index / num_rows; // column-major
         int64_t offset = matrix_id * total_buckets + id;
         atomicAdd(buckets_count + offset, 1);
     }
@@ -310,7 +312,7 @@ __global__ void get_buckets_count_out_cuda_kernel(
     CUDA_1D_KERNEL_LOOP(global_id, n_matrices * total_buckets)
     {
         int buck_index = buckets_index[global_id];
-        if (buck_index >= 0) {
+        if (buck_index >= 0) { // valid bucket and non-empty
             int64_t matrix_id = global_id / total_buckets;
             int64_t bucket = global_id % total_buckets;
             int64_t out_loc = matrix_id * max_buckets + buck_index;
@@ -323,15 +325,16 @@ __global__ void get_buckets_count_out_cuda_kernel(
 // for each element
 template <typename scalar_t>
 __global__ void reconstruct_output_cuda_kernel(
-    const int64_t n, // n_matrices * batch_size * nOutputPlane * outH * outW
+    const int64_t n, // index of shape [batch_size, outputHeight, outputWidth, n_output_plane]
     const int64_t n_matrices,
-    const int64_t image_size,
+    const int64_t image_size, // outputHeight * outputWidth
     const int64_t batch_size,
     const int64_t n_output_plane,
     const int64_t max_buckets,
-    const int* vector_index,
-    const scalar_t* centroids_after_mm,
-    scalar_t* reconstructed_output)
+    const int* vector_index, // [n_matrices, num_rows] where num_rows = batch_size * image_size
+    const scalar_t* centroids_after_mm, // [n_matrices, max_buckets, n_output_plane]
+    scalar_t* reconstructed_output // [batch_size, n_output_plane, outputHeight, outputWidth]
+)
 {
 
     CUDA_1D_KERNEL_LOOP(index, n)
@@ -343,9 +346,11 @@ __global__ void reconstruct_output_cuda_kernel(
 
         int64_t out_offset = image_offset + image_size * (k_out + n_output_plane * batch_id);
 #pragma unroll
+        // reconstructed_output[batch_id][k_out][image_offset]
+        // = sum_{i=0}^{n_matrices} centroids_after_mm[i][vector_index[i][batch_id][image_offset]][k_out]
         for (int64_t matrix_id = 0; matrix_id < n_matrices; matrix_id++) {
             int64_t global_id = matrix_id * batch_size * image_size + idx;
-            int buck_index = vector_index[global_id];
+            int buck_index = vector_index[global_id]; // vector_index[matrix_id][idx]
             int64_t buck_offset = matrix_id * max_buckets + buck_index;
             int64_t in_offset = buck_offset * n_output_plane + k_out;
             reconstructed_output[out_offset] += centroids_after_mm[in_offset];

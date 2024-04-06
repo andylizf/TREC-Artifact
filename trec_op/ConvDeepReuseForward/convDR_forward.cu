@@ -54,10 +54,10 @@ class CovDeepReuse {
     }
 
 public:
-    CovDeepReuse(const at::Tensor& inputs,
-        const at::Tensor& weights,
+    CovDeepReuse(const at::Tensor& inputs, // [batch_size, nInputPlane, inputHeight, inputWidth]
+        const at::Tensor& weights, // [nOutputPlane, nInputPlane, kernel_height, kernel_width]
         const at::Tensor& bias,
-        const at::Tensor& random_vectors,
+        const at::Tensor& random_vectors, // [param_L, param_H]
         const int64_t pad_height,
         const int64_t pad_width,
         const int64_t stride_height,
@@ -78,7 +78,7 @@ public:
         , kernel_width(weights.size(3))
         , do_bias(do_bias)
         , bias(bias)
-        , random_vectors(random_vectors) // [param_L, param_H]
+        , random_vectors(random_vectors)
         , pad_height(pad_height)
         , pad_width(pad_width)
         , stride_height(stride_height)
@@ -120,6 +120,8 @@ public:
     {
         cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
+        // * inputs: [batch_size, nInputPlane, inputHeight, inputWidth]
+
         //! preprocess
         at::Tensor input_row = at::zeros({ n_matrices * num_rows, param_L }, inputs.options());
         im2row_DRbatch_cuda(stream, inputs, OUT input_row, kernel_height, kernel_width,
@@ -147,13 +149,14 @@ public:
         at::Tensor buckets_stats = at::zeros({ 2 }, inputs.options().dtype(at::kInt));
         index_bucket_cuda(stream, buckets_count, OUT buckets_index, OUT buckets_stats);
         // * buckets_index: the uniform index of each bucket (without empty buckets)
+        // ! but only the index in its own matrix
         // * total_buckets: the total number of buckets
         // * max_buckets: the max number of buckets in each matrices
 
         at::Tensor vector_index = at::zeros({ n_matrices, num_rows }, inputs.options().dtype(at::kInt));
         get_vector_index_cuda(stream, vector_ids, buckets_index, OUT vector_index);
         // * vector_index: [n_matrices, num_rows]
-        // * he uniform bucket index of each vector (without empty buckets)
+        // * the uniform bucket index of each vector (without empty buckets)
 
         buckets_stats = buckets_stats.cpu();
         auto buckets_stats_ptr = buckets_stats.data_ptr<int>();
@@ -161,6 +164,7 @@ public:
 
         at::Tensor centroids_for_compute = at::zeros({ n_matrices, max_buckets, param_L }, inputs.options());
         div_remap_centroids_cuda(stream, buckets_centroids, buckets_index, buckets_count, OUT centroids_for_compute);
+        // * centroids_for_compute: [n_matrices, max_buckets, L]
         // * the average per element of vector in the same bucket
 
         int64_t num_vectors = num_rows * n_matrices;
@@ -169,13 +173,19 @@ public:
         auto remain_ratio_tensor = at::tensor({ remain_ratio }, inputs.options());
         //! end preprocess
 
+        // original: [nOutputPlane, nInputPlane, kernel_height, kernel_width]
+        // row_length(nInputPlane * kernel_width * kernel_height)
+        // n_matrices(row_length / param_L)
         at::Tensor weights_matrices = weights.reshape({ nOutputPlane, row_length }).t().reshape({ n_matrices, param_L, nOutputPlane });
 
-        // [n_matrices, max_buckets, n_output_plane]
+        // [n_matrices, max_buckets, nOutputPlane]
         at::Tensor centroids_after_mm = centroids_for_compute.bmm(weights_matrices); // batch matrix multiplicatiion
+        // * centroids_after_mm: [n_matrices, max_buckets, nOutputPlane]
 
         at::Tensor reconstructed_output = at::zeros({ batch_size, nOutputPlane, outputHeight, outputWidth }, inputs.options());
         reconstruct_output_cuda(stream, vector_index, centroids_after_mm, reconstructed_output);
+        // * reconstructed_output: [batch_size, nOutputPlane, outputHeight, outputWidth]
+        // * since [batch_size, ]
 
         if (do_bias)
             bias_add_cuda(stream, reconstructed_output, bias);
@@ -192,6 +202,7 @@ public:
             return { reconstructed_output, centroids_for_compute, vector_index, vector_ids, buckets_count_out, buckets_index, buckets_index_inv, input_row };
         }
         return { reconstructed_output, remain_ratio_tensor };
+        // TODO: reconstructed_output not used in python
         // c10::cuda::CUDACachingAllocator::emptyCache();
         // ? Is it necessary to empty the cache?
     }

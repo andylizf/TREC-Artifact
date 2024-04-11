@@ -132,14 +132,16 @@ public:
         at::Tensor vector_ids = at::zeros({ n_matrices, num_rows }, inputs.options().dtype(ID_DATATYPE_AT));
         int64_t total_buckets = std::pow(2, param_H); //
         at::Tensor buckets_count = at::zeros({ n_matrices, total_buckets }, inputs.options().dtype(at::kInt));
-        LSH_projection(stream, input_row, OUT vector_ids, OUT buckets_count);
+        at::Tensor buckets_centroids = at::zeros({ n_matrices, total_buckets, param_L }, inputs.options());
+
+        at::Tensor hashed_vectors = input_row.mm(random_vectors); // matmul -- [n_matrices * num_rows, H]
+        get_id_count_cuda(stream, hashed_vectors, vector_ids, buckets_count); // compute hash value and count for each bucket
+        get_centroids_add_cuda(stream, vector_ids, input_row, OUT buckets_centroids);
         // * vector_ids: [n_matrices, num_rows]
         // * the bucket index of each vector (empty buckets including)
         // * buckets_count: [n_matrices, total_buckets]
         // * the count of each bucket (empty buckets including)
 
-        at::Tensor buckets_centroids = at::zeros({ n_matrices, total_buckets, param_L }, inputs.options());
-        get_centroids_add_cuda(stream, vector_ids, input_row, OUT buckets_centroids);
         // * the sum per element of vector in the same bucket
 
         input_row = input_row.reshape({ n_matrices, num_rows, param_L });
@@ -147,14 +149,16 @@ public:
 
         at::Tensor buckets_index = at::zeros({ n_matrices, total_buckets }, inputs.options().dtype(at::kInt));
         at::Tensor buckets_stats = at::zeros({ 2 }, inputs.options().dtype(at::kInt));
-        index_bucket_cuda(stream, buckets_count, OUT buckets_index, OUT buckets_stats);
+
+        index_bucket_cuda(stream, buckets_count, buckets_index, buckets_stats);
         // * buckets_index: the uniform index of each bucket (without empty buckets)
         // ! but only the index in its own matrix
         // * total_buckets: the total number of buckets
         // * max_buckets: the max number of buckets in each matrices
 
         at::Tensor vector_index = at::zeros({ n_matrices, num_rows }, inputs.options().dtype(at::kInt));
-        get_vector_index_cuda(stream, vector_ids, buckets_index, OUT vector_index);
+        get_vector_index_cuda(stream, vector_ids, buckets_index, vector_index);
+
         // * vector_index: [n_matrices, num_rows]
         // * the uniform bucket index of each vector (without empty buckets)
 
@@ -202,7 +206,6 @@ public:
             return { reconstructed_output, centroids_for_compute, vector_index, vector_ids, buckets_count_out, buckets_index, buckets_index_inv, input_row };
         }
         return { reconstructed_output, remain_ratio_tensor };
-        // TODO: reconstructed_output not used in python
         // c10::cuda::CUDACachingAllocator::emptyCache();
         // ? Is it necessary to empty the cache?
     }

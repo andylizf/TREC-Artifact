@@ -104,11 +104,7 @@ __global__ void get_id_count_cuda_kernel(
         ID_DATATYPE id = 0; // a vector_len bit integer
 #pragma unroll
         for (int i = 0; i < vector_len; i++) {
-            if (vector_ptr[i] > 0) {
-                id = (id << 1) | 1;
-            } else {
-                id = id << 1;
-            }
+            id = (id << 1) | (vector_ptr[i] > 0);
         }
         vector_ids[index] = id;
 
@@ -511,6 +507,71 @@ void get_centroids_add_cuda(
                 num_rows,
                 total_buckets);
     }));
+    AT_CUDA_CHECK(cudaGetLastError());
+}
+
+__global__ void fused_bucket_index_kernel(
+    const int64_t n_matrices,
+    const int64_t num_rows,
+    const int64_t total_buckets,
+    const int* buckets_count,
+    const ID_DATATYPE* vector_ids,
+    int* buckets_index,
+    int* vector_index,
+    int* buckets_stats)
+{
+    CUDA_1D_KERNEL_LOOP(index, n_matrices)
+    {
+        int bucket_num = 0;
+#pragma unroll
+        for (int i = 0; i < total_buckets; i++) {
+            int64_t bucket_id = index * total_buckets + i;
+            if (buckets_count[bucket_id] > 0) {
+                buckets_index[bucket_id] = bucket_num;
+            } else {
+                buckets_index[bucket_id] = -1;
+            }
+            bucket_num += (buckets_count[bucket_id] > 0);
+        }
+        atomicAdd(&buckets_stats[0], bucket_num);
+        atomicMax(&buckets_stats[1], bucket_num);
+    }
+
+    CUDA_1D_KERNEL_LOOP(global_id, n_matrices * num_rows)
+    {
+        int64_t matrix_id = global_id / num_rows;
+        ID_DATATYPE vect_id = vector_ids[global_id];
+        int64_t vect_offset = matrix_id * total_buckets + vect_id;
+        int buck_index = buckets_index[vect_offset];
+        vector_index[global_id] = buck_index;
+    }
+}
+
+//! fixme: acc 0.1
+void fused_bucket_index_cuda(
+    cudaStream_t& stream,
+    const at::Tensor& buckets_count,
+    const at::Tensor& vector_ids,
+    at::Tensor& buckets_index,
+    at::Tensor& vector_index,
+    at::Tensor& buckets_stats)
+{
+    int64_t n_matrices = buckets_index.size(0);
+    int64_t total_buckets = buckets_index.size(1);
+    int64_t num_rows = vector_ids.size(1);
+
+    int64_t max_threads_per_block = CUDA_NUM_THREADS;
+    int64_t blocks = (n_matrices * num_rows + max_threads_per_block - 1) / max_threads_per_block;
+
+    fused_bucket_index_kernel<<<blocks, max_threads_per_block, 0, stream>>>(
+        n_matrices,
+        num_rows,
+        total_buckets,
+        buckets_count.data_ptr<int>(),
+        vector_ids.data_ptr<ID_DATATYPE>(),
+        buckets_index.data_ptr<int>(),
+        vector_index.data_ptr<int>(),
+        buckets_stats.data_ptr<int>());
     AT_CUDA_CHECK(cudaGetLastError());
 }
 

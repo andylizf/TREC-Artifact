@@ -40,11 +40,11 @@ inline int GET_BLOCKS(const int N)
 template <typename scalar_t>
 __global__ void get_gradOutputCentroids_add_cuda_kernel(
     const int* vector_index,
-    const scalar_t* gradOutput_mat,
-    scalar_t* gradOutput_centroids,
+    const scalar_t* gradOutput_mat, // {batch_size * outputHeight * outputWidth, nOutputPlane}
+    scalar_t* gradOutput_centroids, // {n_matrices, max_buckets, nOutputPlane}
     const int64_t max_buckets,
     const int64_t n_output_plane,
-    const int64_t num_rows,
+    const int64_t num_rows, // batch_size * outputHeight * outputWidth
     const int64_t n_matrices)
 {
 
@@ -62,6 +62,9 @@ __global__ void get_gradOutputCentroids_add_cuda_kernel(
         for (int i = 0; i < n_output_plane; i++) {
             atomicAdd(buck_start + i, vect_start[i]);
         }
+        // for all matrix_id in n_matrices:
+        // for all i in n_output_plane:
+        //  gradOutput_centroids[matrix_id][vect_index[matrix_id][vec_id]][i] += gradOutput_mat[vec_id][i]
     }
 }
 

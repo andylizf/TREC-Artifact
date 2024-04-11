@@ -42,7 +42,7 @@ class Conv2d_TREC_Function(torch.autograd.Function):
             ctx.do_bias = do_bias
             ctx.input_height = inputs.size()[2]
             ctx.input_width = inputs.size()[3]
-        return outputs[0]
+        return outputs[0] # used for gradient computation
 
     @staticmethod
     def backward(ctx, gradOutput):

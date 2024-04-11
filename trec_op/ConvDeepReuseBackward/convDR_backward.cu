@@ -127,7 +127,7 @@ std::vector<at::Tensor> conv_deep_reuse_backward(
     // const at::IntArrayRef input_size,
     const at::Tensor input_row, // {n_matrices, num_row, param_L}
     const at::Tensor inputCentroids, // {n_matrices, max_buckets, param_L}
-    const at::Tensor weights,
+    const at::Tensor weights, // {nOutputPlane, nInputPlane, kH, kW}
     const at::Tensor gradOutput, // {N, K, outH, outW}
     const at::Tensor vector_index, // {n_matrices, num_rows}
     const at::Tensor vector_ids, // {n_matrices, num_rows}

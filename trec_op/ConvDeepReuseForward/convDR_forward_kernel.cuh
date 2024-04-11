@@ -6,7 +6,7 @@
 #include <ATen/cuda/detail/KernelUtils.h>
 #include <c10/cuda/CUDAGuard.h>
 #include <stdio.h>
-#include <utility>
+#include <sys/time.h>
 
 #define CUDA_NUM_THREADS 1024
 
@@ -444,7 +444,6 @@ auto get_id_count_cuda(
     auto vector_len { hashed_vectors.size(1) };
 
     // auto [n_matrices, num_rows] = buckets_count.sizes();
-    auto n_matrices { vector_ids.size(0) };
     auto num_rows { vector_ids.size(1) };
 
     int64_t total_buckets = buckets_count.size(1); // [n_matrices, total_buckets]

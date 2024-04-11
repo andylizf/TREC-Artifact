@@ -5,8 +5,6 @@
 #include <ATen/cuda/CUDAContext.h>
 #include <ATen/cuda/detail/KernelUtils.h>
 #include <c10/cuda/CUDAGuard.h>
-#include <stdio.h>
-#include <utility>
 
 #define MY_CUDA_CHECK(EXPR)                                                                                                                    \
     do {                                                                                                                                       \

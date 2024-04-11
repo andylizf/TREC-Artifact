@@ -8,9 +8,7 @@
 #include <c10/cuda/CUDAGuard.h>
 #include <c10/util/logging_is_not_google_glog.h>
 #include <cstdint>
-#include <utility>
 
-#include "../func_utilis.h"
 #include "convDR_forward.h"
 #include "convDR_forward_kernel.cuh"
 

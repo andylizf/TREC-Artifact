@@ -31,7 +31,7 @@ class CovDeepReuse {
     int64_t pad_height, pad_width, stride_height, stride_width;
     int64_t param_L, param_H;
     bool is_training;
-    bool print_rc;
+    [[maybe_unused]] bool print_rc;
 
     int64_t row_length;
     int64_t n_matrices;
@@ -142,9 +142,6 @@ public:
 
         // * the sum per element of vector in the same bucket
 
-        input_row = input_row.reshape({ n_matrices, num_rows, param_L });
-        // * input_row: [n_matrices, num_rows, L]
-
         at::Tensor buckets_index = at::zeros({ n_matrices, total_buckets }, inputs.options().dtype(at::kInt));
         at::Tensor buckets_stats = at::zeros({ 2 }, inputs.options().dtype(at::kInt));
 
@@ -201,9 +198,17 @@ public:
             // * buckets_index_inv: [n_matrices, max_buckets]
             // * the original index of each bucket (empty buckets not including)
 
-            return { reconstructed_output, centroids_for_compute, vector_index, vector_ids, buckets_count_out, buckets_index, buckets_index_inv, input_row };
+            return { std::move(reconstructed_output),
+                std::move(centroids_for_compute),
+                std::move(vector_index),
+                std::move(vector_ids),
+                std::move(buckets_count_out),
+                std::move(buckets_index),
+                std::move(buckets_index_inv),
+                input_row.reshape({ n_matrices, num_rows, param_L }) };
         }
-        return { reconstructed_output, remain_ratio_tensor };
+        return { std::move(reconstructed_output),
+            std::move(remain_ratio_tensor) };
         // c10::cuda::CUDACachingAllocator::emptyCache();
         // ? Is it necessary to empty the cache?
     }

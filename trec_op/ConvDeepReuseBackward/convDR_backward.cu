@@ -4,8 +4,6 @@
 #include <ATen/cuda/CUDAContext.h>
 #include <ATen/cuda/detail/KernelUtils.h>
 #include <c10/cuda/CUDAGuard.h>
-#include <stdio.h>
-#include <utility>
 
 #include "convDR_backward.h"
 #include "convDR_backward_kernel.cuh"
@@ -63,8 +61,6 @@ std::vector<at::Tensor> get_gradInput(
     int64_t n_matrices = gradOutput_centroids.size(0);
 
     int64_t batch_size = output_size[0];
-    int64_t outputHeight = output_size[2];
-    int64_t outputWidth = output_size[3];
     int64_t nOutputPlane = weights.size(0);
     int64_t n_input_plane = weights.size(1);
     int64_t kernel_height = weights.size(2);

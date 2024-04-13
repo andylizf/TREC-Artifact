@@ -10,6 +10,10 @@
 
 #define CUDA_NUM_THREADS 1024
 
+// 表示线程数大于当前grid开启上限时，一直在block中循环线程计算直到完成任务。
+// CUDA_1D_KERNEL_LOOP see https://stackoverflow.com/questions/39470116/tensorflow-what-does-index-denote-in-cuda-1d-kernel-loopindex-nthreads-op-us
+// is to ensure that even if the number of elements is more than the number of threads, each thread can process multiple elements
+// i.e., each thread will be responsible for the elements of index % threads_num == thread_id
 #define CUDA_1D_KERNEL_LOOP(i, n)                              \
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; \
          i += blockDim.x * gridDim.x)
@@ -53,7 +57,7 @@ __global__ void im2row_DRbatch_cuda_kernel(
 {
 
     CUDA_1D_KERNEL_LOOP(index, n)
-    { // 表示线程数大于当前grid开启上限时，一直在block中循环线程计算直到完成任务。
+    {
         int64_t w_out = index % width_row;
         int64_t idx = index / width_row;
         int64_t h_out = idx % height_row;
@@ -85,9 +89,12 @@ __global__ void im2row_DRbatch_cuda_kernel(
     }
 }
 
+// forall i in [0, num_vectors)
+//     vector_ids[i] = to_binary(hashed_vectors[i][j] > 0)
+//     buckets_count[matrix_id * total_buckets + vector_ids[i]] += 1
 template <typename scalar_t>
 __global__ void get_id_count_cuda_kernel(
-    const int64_t n, // num_vectors
+    const int64_t num_vectors,
     const int64_t vector_len,
     const int64_t num_rows,
     const int64_t total_buckets,
@@ -95,10 +102,7 @@ __global__ void get_id_count_cuda_kernel(
     int* buckets_count,
     ID_DATATYPE* vector_ids)
 {
-    // CUDA_1D_KERNEL_LOOP see https://stackoverflow.com/questions/39470116/tensorflow-what-does-index-denote-in-cuda-1d-kernel-loopindex-nthreads-op-us
-    // is to ensure that even if the number of elements is more than the number of threads, each thread can process multiple elements
-    // i.e., each thread will be responsible for the elements of index % threads_num == thread_id
-    CUDA_1D_KERNEL_LOOP(index, n)
+    CUDA_1D_KERNEL_LOOP(index, num_vectors)
     {
         const scalar_t* vector_ptr = hashed_vectors + index * vector_len;
         ID_DATATYPE id = 0; // a vector_len bit integer
@@ -108,87 +112,9 @@ __global__ void get_id_count_cuda_kernel(
         }
         vector_ids[index] = id;
 
-        int64_t matrix_id = index / num_rows; // column-major
+        int64_t matrix_id = index / num_rows;
         int64_t offset = matrix_id * total_buckets + id;
         atomicAdd(buckets_count + offset, 1);
-    }
-}
-
-template <typename scalar_t>
-__global__ void get_id_count_cuda_kernel2(
-    const int64_t n, // num_vectors = num_rows * n_matrices
-    const int64_t vector_len,
-    const int64_t num_rows,
-    const int64_t total_buckets,
-    const scalar_t* hashed_vectors,
-    int* buckets_count,
-    int* vector_ids)
-{
-
-    extern __shared__ int64_t sdata[CUDA_NUM_THREADS];
-    uint64_t tid = threadIdx.x;
-    uint64_t i = blockIdx.x * blockDim.x + tid;
-    if (i >= n * vector_len)
-        return;
-
-    int64_t vect_offset = i % vector_len;
-    int64_t idx = i / vector_len;
-    int64_t vect_id = idx % num_rows;
-    int64_t matrix_id = idx / num_rows;
-    int64_t value = hashed_vectors[i] > 0 ? 1 : 0;
-    sdata[tid] = value * (2 ^ (vector_len - 1 - vect_offset));
-    __syncthreads();
-
-    for (int64_t s = (vector_len + 1) / 2; s > 0; s /= 2) {
-        if ((vect_offset < s) && (vect_offset + s < vector_len) && ((tid + s) < CUDA_NUM_THREADS)) {
-            sdata[tid] += sdata[tid + s];
-        }
-        __syncthreads();
-    }
-
-    // if(vect_offset == 0){
-    //     vector_ids[idx] = sdata[tid];
-    //     // printf("tid=%d, id=%d\n", tid, sdata[tid]);
-    //     int64_t matrix_id = idx / num_rows;
-    //     int64_t offset = matrix_id * total_buckets + vector_ids[idx];
-    //     atomicAdd(buckets_count + offset, 1);
-    // }
-}
-
-__global__ void count_buckets_cuda_kernel(
-    const int64_t n_matrices,
-    const int64_t vector_len,
-    const int64_t num_rows,
-    const int64_t total_buckets,
-    int* buckets_count,
-    int* vector_ids)
-{
-
-    __shared__ int sdata[CUDA_NUM_THREADS];
-    uint64_t tid = threadIdx.x;
-    uint64_t i = blockIdx.x * blockDim.x + tid;
-    if (i >= total_buckets * num_rows)
-        return;
-
-    int64_t vect_id = i % num_rows;
-    int64_t buck_value = i / num_rows;
-    // int64_t matrix_id = idx % n_matrices;
-    // int64_t buck_value = idx / n_matrices;
-
-    for (int64_t matrix_id = 0; matrix_id < n_matrices; matrix_id++) {
-        sdata[tid] = vector_ids[matrix_id * num_rows + vect_id] == buck_value ? 1 : 0;
-        __syncthreads();
-
-        for (uint64_t s = (num_rows + 1) / 2; s > 0; s >>= 1) {
-            if (vect_id < s && vect_id + s < num_rows) {
-                sdata[tid] += sdata[tid + s];
-            }
-            __syncthreads();
-        }
-
-        // if(vect_id == 0){
-        //     buckets_count[matrix_id * total_buckets + buck_value] = sdata[tid];
-        // }
     }
 }
 
@@ -257,9 +183,6 @@ __global__ void get_vector_index_cuda_kernel(
 
     CUDA_1D_KERNEL_LOOP(global_id, n_matrices * num_rows)
     {
-        // * Here the array is arranged in a way that
-        // * the #row is n_matrices, and the #column is num_rows
-        // * which is the transpose of the original array
         int64_t matrix_id = global_id / num_rows;
         ID_DATATYPE vect_id = vector_ids[global_id];
         int64_t vect_offset = matrix_id * total_buckets + vect_id;
@@ -649,7 +572,6 @@ void get_buckets_count_out_cuda(
     const at::Tensor& buckets_count,
     at::Tensor& buckets_count_out)
 {
-
     int64_t n_matrices = buckets_index.size(0);
     int64_t total_buckets = buckets_index.size(1);
     int64_t max_buckets = buckets_count_out.size(1);

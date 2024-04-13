@@ -72,7 +72,6 @@ void get_gradOutputCentroids_add_cuda(
     const at::Tensor& gradOutput_mat,
     at::Tensor& gradOutput_centroids)
 {
-
     int64_t num_rows = gradOutput_mat.size(0);
     int64_t n_output_plane = gradOutput_mat.size(1);
     int64_t n_matrices = gradOutput_centroids.size(0);

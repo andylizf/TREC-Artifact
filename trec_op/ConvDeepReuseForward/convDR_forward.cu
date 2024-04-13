@@ -18,8 +18,6 @@
     CHECK_CUDA(x);     \
     CHECK_CONTIGUOUS(x)
 
-#define OUT
-
 class CovDeepReuse {
     at::Tensor inputs;
     int64_t batch_size, nInputPlane, inputHeight, inputWidth;
@@ -122,7 +120,7 @@ public:
 
         //! preprocess
         at::Tensor input_row = at::zeros({ n_matrices * num_rows, param_L }, inputs.options());
-        im2row_DRbatch_cuda(stream, inputs, OUT input_row, kernel_height, kernel_width,
+        im2row_DRbatch_cuda(stream, inputs, input_row, kernel_height, kernel_width,
             pad_height, pad_width, stride_height, stride_width, param_L);
         // * input_row: [n_matrices * num_rows, L]
         // * the input matrix after im2row
@@ -134,7 +132,7 @@ public:
 
         at::Tensor hashed_vectors = input_row.mm(random_vectors); // matmul -- [n_matrices * num_rows, H]
         get_id_count_cuda(stream, hashed_vectors, vector_ids, buckets_count); // compute hash value and count for each bucket
-        get_centroids_add_cuda(stream, vector_ids, input_row, OUT buckets_centroids);
+        get_centroids_add_cuda(stream, vector_ids, input_row, buckets_centroids);
         // * vector_ids: [n_matrices, num_rows]
         // * the bucket index of each vector (empty buckets including)
         // * buckets_count: [n_matrices, total_buckets]
@@ -162,7 +160,7 @@ public:
         int64_t max_buckets = buckets_stats_ptr[1];
 
         at::Tensor centroids_for_compute = at::zeros({ n_matrices, max_buckets, param_L }, inputs.options());
-        div_remap_centroids_cuda(stream, buckets_centroids, buckets_index, buckets_count, OUT centroids_for_compute);
+        div_remap_centroids_cuda(stream, buckets_centroids, buckets_index, buckets_count, centroids_for_compute);
         // * centroids_for_compute: [n_matrices, max_buckets, L]
         // * the average per element of vector in the same bucket
 
@@ -192,7 +190,7 @@ public:
         if (is_training) {
             at::Tensor buckets_count_out = at::zeros({ n_matrices, max_buckets }, inputs.options().dtype(at::kInt));
             at::Tensor buckets_index_inv = at::zeros({ n_matrices, max_buckets }, inputs.options().dtype(at::kInt));
-            get_buckets_count_out_cuda(stream, buckets_index, OUT buckets_index_inv, buckets_count, OUT buckets_count_out);
+            get_buckets_count_out_cuda(stream, buckets_index, buckets_index_inv, buckets_count, buckets_count_out);
             // * buckets_count_out: [n_matrices, max_buckets]
             // * the count of each bucket (empty buckets not including)
             // * buckets_index_inv: [n_matrices, max_buckets]

@@ -20,6 +20,13 @@
     TORCH_CHECK(tensor.sizes() == shape, "Expected shape ", shape, " but got ", tensor.sizes());
 }
 
+struct BackwardOutput {
+    at::Tensor gradInput;
+    at::Tensor gradWeights;
+    at::Tensor gradHash;
+    at::Tensor gradBias; // Optional
+};
+
 class CovDeepReuseBackward {
 private:
     at::Tensor input_row; // [n_matrices, num_rows, param_L]
@@ -52,15 +59,12 @@ private:
     int total_buckets;
     int batch_size;
     int output_height, output_width;
+    at::IntArrayRef weights_sizes;
 
-    std::vector<at::Tensor>
-    get_gradParameters(
+    std::pair<at::Tensor, at::Tensor> get_gradParameters(
         cudaStream_t& stream,
-        const at::IntArrayRef kernel_size,
-        const at::Tensor& inputCentroids, // {n_matrices, max_buckets, param_L}, centroids_for_compute
-        const at::Tensor& gradOutput_centroids, // {n_matrices, max_buckets, nOutputPlane}
-        const at::Tensor& vector_index,
-        const bool do_bias)
+        const at::Tensor& gradOutput_centroids // {n_matrices, max_buckets, nOutputPlane}
+    ) const
     {
         at::Tensor inputCentroids_col = inputCentroids.transpose(1, 2).contiguous();
         CHECK_SHAPE(inputCentroids_col, { n_matrices, param_L, max_buckets });
@@ -68,31 +72,19 @@ private:
         at::Tensor gradWeights = inputCentroids_col.bmm(gradOutput_centroids)
                                      .reshape({ -1, nOutputPlane })
                                      .transpose(0, 1)
-                                     .reshape(kernel_size);
+                                     .reshape(weights_sizes);
         CHECK_SHAPE(gradWeights, { nOutputPlane, nInputPlane, kernel_height, kernel_width });
 
-        if (do_bias) {
-            at::Tensor gradBias = gradOutput_centroids[0].sum(0); // ? [0]
-            return { gradWeights, gradBias };
-        }
-        return { gradWeights };
+        at::Tensor gradBias = do_bias ? gradOutput_centroids[0].sum(0) : at::Tensor();
+        return { gradWeights, gradBias };
     }
 
-    std::vector<at::Tensor> get_gradInput(
+    std::pair<at::Tensor, at::Tensor> get_gradInput(
         cudaStream_t& stream,
-        const at::Tensor& weights, // {nOutputPlane, nInputPlane, kH, kW}
-        const at::Tensor& gradOutput_centroids, // {n_matrices, max_buckets, nOutputPlane}
-        const at::Tensor& vector_index, // {n_matrices, num_rows}
-        const int64_t input_height,
-        const int64_t input_width,
-        const int64_t pad_height,
-        const int64_t pad_width,
-        const int64_t stride_height,
-        const int64_t stride_width,
-        const int64_t param_L)
+        const at::Tensor& gradOutput_centroids // {n_matrices, max_buckets, nOutputPlane}
+    )
     {
         at::Tensor gradInput_rows = at::zeros({ num_rows, n_matrices * param_L }, gradOutput_centroids.options());
-
         at::Tensor weights_matrices = weights.reshape({ nOutputPlane, n_matrices, param_L }).transpose(0, 1).contiguous();
         at::Tensor gradInput_centroids = gradOutput_centroids.bmm(weights_matrices);
         reconstruct_gradInputRows_cuda(stream, vector_index, gradInput_centroids, gradInput_rows);
@@ -103,23 +95,14 @@ private:
             kernel_height, kernel_width,
             pad_height, pad_width,
             stride_height, stride_width);
-        return { gradInputs, gradInput_centroids };
+        return { std::move(gradInputs), std::move(gradInput_centroids) };
     }
 
     at::Tensor get_gradHash(
         cudaStream_t& stream,
-        const at::Tensor& vector_ids,
-        const at::Tensor& buckets_count,
-        const at::Tensor& buckets_index,
-        const at::Tensor& buckets_index_inv,
         const at::Tensor& input_matrix,
         const at::Tensor& hash_bits,
-        const at::Tensor& gradIndex,
-        const int64_t max_buckets,
-        const int64_t param_L,
-        const int64_t param_H,
-        const float sigma,
-        const float alpha)
+        const at::Tensor& gradIndex)
     {
         at::Tensor grad_Hash_value = (vector_ids.unsqueeze(2).repeat({ 1, 1, max_buckets }) + 1).to(gradIndex.options()) / (buckets_index_inv.unsqueeze(1).repeat({ 1, num_rows, 1 }) + 1).to(gradIndex.options()) - 1;
         grad_Hash_value = -1 * grad_Hash_value / (sigma * sigma) * exp(-1 * grad_Hash_value * grad_Hash_value / (2 * sigma * sigma)) * gradIndex / buckets_count.unsqueeze(1).repeat({ 1, num_rows, 1 }).to(gradIndex.options());
@@ -146,22 +129,6 @@ private:
         get_gradOutputCentroids_add_cuda(stream, vector_index, gradOutput_mat, gradOutput_centroids);
 
         return gradOutput_centroids;
-    }
-
-    void get_gradInput_rows(
-        cudaStream_t& stream,
-        const at::Tensor& weights,
-        const at::Tensor& gradOutput_centroids,
-        const at::Tensor& vector_index,
-        const int64_t param_L,
-        at::Tensor& gradInput_rows)
-    {
-        at::Tensor weights_matrices = weights.reshape({ nOutputPlane, n_matrices,
-                                                          param_L })
-                                          .transpose(0, 1)
-                                          .contiguous();
-        at::Tensor gradInput_centroids = gradOutput_centroids.bmm(weights_matrices);
-        reconstruct_gradInputRows_cuda(stream, vector_index, gradInput_centroids, gradInput_rows);
     }
 
 public:
@@ -218,6 +185,7 @@ public:
         , batch_size(gradOutput.size(0))
         , output_height(gradOutput.size(2))
         , output_width(gradOutput.size(3))
+        , weights_sizes(weights.sizes())
     {
         CHECK_INPUT(input_row);
         CHECK_SHAPE(input_row, { n_matrices, num_rows, param_L });
@@ -241,37 +209,24 @@ public:
         CHECK_SHAPE(random_vectors, { param_L, param_H });
     }
 
-    std::vector<at::Tensor> backward()
+    BackwardOutput backward()
     {
         cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
-        at::IntArrayRef kernel_size = weights.sizes();
-
         at::Tensor gradOutput_centroids = get_gradOutputSum(stream);
 
-        std::vector<at::Tensor> gradParas = get_gradParameters(stream, kernel_size,
-            inputCentroids, gradOutput_centroids, vector_index, do_bias);
+        const auto& [gradWeights, gradBias] = get_gradParameters(stream, gradOutput_centroids);
 
         get_gradOutputCentroids_div_cuda(stream, gradOutput_centroids, buckets_count); // ? Not before get_gradParameters?
 
-        std::vector<at::Tensor> gradInput_info = get_gradInput(stream,
-            weights, gradOutput_centroids, vector_index, input_height, input_width,
-            pad_height, pad_width, stride_height, stride_width, param_L);
-
-        at::Tensor gradInput = gradInput_info[0];
-        at::Tensor gradInput_centroids = gradInput_info[1];
+        const auto& [gradInput, gradInput_centroids] = get_gradInput(stream, gradOutput_centroids);
 
         at::Tensor gradIndex = input_row.bmm(gradInput_centroids.transpose(1, 2));
         at::Tensor input_matrix = input_row.reshape({ n_matrices * num_rows, param_L });
         at::Tensor hash_bits = 1 / (1 + exp(-1 * alpha * (input_matrix.mm(random_vectors) - 0.1 / pow(2, param_H))));
-        auto gradHash = get_gradHash(stream, vector_ids, buckets_count, buckets_index, buckets_index_inv, input_matrix, hash_bits, gradIndex, max_buckets, param_L, param_H, sigma, alpha);
+        const auto& gradHash = get_gradHash(stream, input_matrix, hash_bits, gradIndex);
 
-        at::Tensor gradWeights = gradParas[0];
-        if (do_bias) {
-            at::Tensor gradBias = gradParas[1];
-            return { gradInput, gradWeights, gradBias, gradHash };
-        }
-        return { gradInput, gradWeights, gradHash };
+        return { std::move(gradInput), std::move(gradWeights), std::move(gradHash), std::move(gradBias) };
     }
 };
 
@@ -319,5 +274,10 @@ std::vector<at::Tensor> conv_deep_reuse_backward(
         sigma,
         do_bias
     };
-    return covDeepReuseBackward.backward();
+    auto [gradInput, gradWeights, gradHash, gradBias] = covDeepReuseBackward.backward();
+    if (do_bias) {
+        //! gradBias should be first to match the order in the Python code
+        return { gradInput, gradWeights, gradBias, gradHash };
+    }
+    return { gradInput, gradWeights, gradHash };
 }

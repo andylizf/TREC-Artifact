@@ -19,7 +19,7 @@
     cudaDeviceSynchronize(); \
     printf("File: %s, Line: %d, Function: %s\n", __FILE__, __LINE__, __FUNCTION__);
 
-#define CUDA_NUM_THREADS 1024
+#define CUDA_NUM_THREADS 256
 
 #define CUDA_1D_KERNEL_LOOP(i, n)                              \
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; \
@@ -45,7 +45,7 @@ __global__ void get_gradOutputCentroids_add_cuda_kernel(
     const int64_t num_rows, // batch_size * outputHeight * outputWidth
     const int64_t n_matrices)
 {
-
+    // printf("get_gradOutputCentroids_add_cuda_kernel\n");
     CUDA_1D_KERNEL_LOOP(global_id, num_rows * n_matrices)
     {
         int vect_index = vector_index[global_id];
@@ -58,6 +58,9 @@ __global__ void get_gradOutputCentroids_add_cuda_kernel(
         // const scalar_t *vect_start = gradOutput_mat + global_id * n_output_plane;   // ??? global_id, sure?
         const scalar_t* vect_start = gradOutput_mat + vec_id * n_output_plane;
         for (int i = 0; i < n_output_plane; i++) {
+            // printf("block (%d, %d, %d) thread(%d, %d, %d)\ngradOutput_mat[%ld][%d][%d] = %f\n",
+            //     blockIdx.x, blockIdx.y, blockIdx.z, threadIdx.x, threadIdx.y, threadIdx.z,
+            //     matrix_id, vect_index, i, vect_start[i]);
             atomicAdd(buck_start + i, vect_start[i]);
         }
         // for all matrix_id in n_matrices:
@@ -72,6 +75,7 @@ void get_gradOutputCentroids_add_cuda(
     const at::Tensor& gradOutput_mat,
     at::Tensor& gradOutput_centroids)
 {
+    printf("get_gradOutputCentroids_add_cuda\n");
     int64_t num_rows = gradOutput_mat.size(0);
     int64_t n_output_plane = gradOutput_mat.size(1);
     int64_t n_matrices = gradOutput_centroids.size(0);
@@ -115,6 +119,7 @@ void get_gradOutputCentroids_div_cuda(
     at::Tensor& gradOutput_centroids, // {n_matrices, max_buckets, nOutputPlane}
     const at::Tensor& buckets_count)
 {
+    printf("get_gradOutputCentroids_div_cuda\n");
     int64_t num_buckets = gradOutput_centroids.size(0) * gradOutput_centroids.size(1);
     int64_t vector_len = gradOutput_centroids.size(2);
 

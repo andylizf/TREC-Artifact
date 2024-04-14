@@ -9,7 +9,7 @@
 #include "convDR_backward_kernel.cuh"
 // #include "func_utilis.h"
 
-#define CHECK_CUDA(x) TORCH_CHECK(x.type().is_cuda(), #x " must be a CUDA tensor")
+#define CHECK_CUDA(x) TORCH_CHECK(x.is_cuda(), #x " must be a CUDA tensor")
 #define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
 #define CHECK_INPUT(x) \
     CHECK_CUDA(x);     \
@@ -58,6 +58,7 @@ std::vector<at::Tensor> get_gradInput(
     const int64_t stride_width,
     const int64_t param_L)
 {
+    printf("get_gradInput\n");
     int64_t n_matrices = gradOutput_centroids.size(0);
 
     int64_t batch_size = output_size[0];
@@ -96,124 +97,206 @@ std::vector<at::Tensor> get_gradParameters(
     const at::Tensor& vector_index,
     const bool do_bias)
 {
+    printf("get_gradParameters\n");
     int64_t nOutputPlane = gradOutput_centroids.size(2);
+
+    printf("nOutputPlane = %d\n", nOutputPlane);
 
     at::Tensor inputCentroids_col = inputCentroids.transpose(1, 2).contiguous();
     // DEBUG_INFO
     // * inputCentroids_col = {n_matrices, param_L, max_buckets}
 
-    at::Tensor gradWeights = inputCentroids_col.bmm(gradOutput_centroids).reshape({ -1, nOutputPlane }).transpose(0, 1).reshape(kernel_size);
+    printf("inputCentroids_col = %d, %d, %d\n", inputCentroids_col.size(0), inputCentroids_col.size(1), inputCentroids_col.size(2));
+    printf("gradOutput_centroids = %d, %d, %d\n", gradOutput_centroids.size(0), gradOutput_centroids.size(1), gradOutput_centroids.size(2));
+
+    printf("Thus\n");
+    at::Tensor gradWeights = inputCentroids_col.bmm(gradOutput_centroids);
+
+    // [n_matrices, param_L, nOutputPlane]
+
+    printf("Finally\n");
+
+    gradWeights = gradWeights.reshape({ -1, nOutputPlane });
+    // [n_matrices * param_L, nOutputPlane]
+
+    printf("vectors\n");
+
+    gradWeights = gradWeights.transpose(0, 1);
+    // [nOutputPlane, n_matrices * param_L]
+
+    printf("done\n");
+
+    printf("trying to reshape gradWeights=%d, %d\n", gradWeights.size(0), gradWeights.size(1));
+    printf("kernel_size=%d, %d, %d, %d\n", kernel_size[0], kernel_size[1], kernel_size[2], kernel_size[3]);
+
+    gradWeights = gradWeights.reshape(kernel_size);
     // * gradWeights = {nOutputPlane, nInputPlane, kernel_height, kernel_width}
+
+    printf("Here\n");
 
     // DEBUG_INFO
     if (do_bias) {
         at::Tensor gradBias = gradOutput_centroids[0].sum(0); // ? [0]
+        printf("Umm\n");
         return { gradWeights, gradBias };
     }
+
+    printf("I am here\n");
     // DEBUG_INFO
 
     return { gradWeights };
 }
 
-std::vector<at::Tensor> conv_deep_reuse_backward(
-    // const at::IntArrayRef input_size,
-    const at::Tensor input_row, // {n_matrices, num_row, param_L}
-    const at::Tensor inputCentroids, // {n_matrices, max_buckets, param_L}
-    const at::Tensor weights, // {nOutputPlane, nInputPlane, kH, kW}
-    const at::Tensor gradOutput, // {N, K, outH, outW}
-    const at::Tensor vector_index, // {n_matrices, num_rows}
-    const at::Tensor vector_ids, // {n_matrices, num_rows}
-    const at::Tensor buckets_count, // {n_matrices, max_buckets}
-    const at::Tensor buckets_index, // {n_matrices, total_buckets}
-    const at::Tensor buckets_index_inv, // {n_matrices, max_buckets}
-    const at::Tensor random_vectors, // {L, H}
-    const int64_t input_height,
-    const int64_t input_width,
-    const int64_t pad_height,
-    const int64_t pad_width,
-    const int64_t stride_height,
-    const int64_t stride_width,
-    const int64_t param_H,
-    const float alpha,
-    const float sigma,
-    const bool do_bias)
-{
+#define CHECK_SHAPE(x, s) TORCH_CHECK(x.sizes() == s, #x " must have the same shape as " #s)
 
-    // printf("conv_deep_reuse_backward\n");
-    // printf("input_row = %d, %d, %d\n", input_row.size(0), input_row.size(1), input_row.size(2));
-    // printf("inputCentroids = %d, %d, %d\n", inputCentroids.size(0), inputCentroids.size(1), inputCentroids.size(2));
-    // printf("weights = %d, %d, %d, %d\n", weights.size(0), weights.size(1), weights.size(2), weights.size(3));
-    // printf("gradOutput = %d, %d, %d, %d\n", gradOutput.size(0), gradOutput.size(1), gradOutput.size(2), gradOutput.size(3));
-    // printf("vector_index = %d, %d\n", vector_index.size(0), vector_index.size(1));
-    // std::cout << "vector_index = " << vector_index << std::endl;
-    // printf("vector_ids = %d, %d\n", vector_ids.size(0), vector_ids.size(1));
-    // std::cout << "vector_ids = " << vector_ids << std::endl;
-    // printf("buckets_count = %d, %d\n", buckets_count.size(0), buckets_count.size(1));
-    // std::cout << "buckets_count = " << buckets_count << std::endl;
-    // printf("buckets_index = %d, %d\n", buckets_index.size(0), buckets_index.size(1));
-    // std::cout << "buckets_index = " << buckets_index << std::endl;
-    // printf("buckets_index_inv = %d, %d\n", buckets_index_inv.size(0), buckets_index_inv.size(1));
-    // std::cout << "buckets_index_inv = " << buckets_index_inv << std::endl;
-    // printf("random_vectors = %d, %d\n", random_vectors.size(0), random_vectors.size(1));
-    // printf("input_height = %d\n", input_height);
-    // printf("input_width = %d\n", input_width);
-    // printf("pad_height = %d\n", pad_height);
-    // printf("pad_width = %d\n", pad_width);
-    // printf("stride_height = %d\n", stride_height);
-    // printf("stride_width = %d\n", stride_width);
-    // printf("param_H = %d\n", param_H);
-    // printf("alpha = %f\n", alpha);
-    // printf("sigma = %f\n", sigma);
-    // printf("do_bias = %d\n", do_bias);
+class CovDeepReuseBackward {
+private:
+    at::Tensor input_row;
+    at::Tensor inputCentroids;
+    at::Tensor weights;
+    at::Tensor gradOutput;
+    at::Tensor vector_index;
+    at::Tensor vector_ids;
+    at::Tensor buckets_count;
+    at::Tensor buckets_index;
+    at::Tensor buckets_index_inv;
+    at::Tensor random_vectors;
+    int64_t input_height;
+    int64_t input_width;
+    int64_t pad_height;
+    int64_t pad_width;
+    int64_t stride_height;
+    int64_t stride_width;
+    int64_t param_H;
+    float alpha;
+    float sigma;
+    bool do_bias;
 
-    CHECK_INPUT(input_row);
-    CHECK_INPUT(gradOutput);
-    CHECK_INPUT(weights);
-    CHECK_INPUT(inputCentroids);
-    CHECK_INPUT(vector_index);
-    CHECK_INPUT(vector_ids);
-    CHECK_INPUT(buckets_count);
-    CHECK_INPUT(buckets_index);
-    CHECK_INPUT(buckets_index_inv);
-    CHECK_INPUT(random_vectors);
+public:
+    CovDeepReuseBackward(
+        const at::Tensor& input_row, // {n_matrices, num_row, param_L}
+        const at::Tensor& inputCentroids, // {n_matrices, max_buckets, param_L}
+        const at::Tensor& weights, // {nOutputPlane, nInputPlane, kH, kW}
+        const at::Tensor& gradOutput, // {N, K, outH, outW}
+        const at::Tensor& vector_index, // {n_matrices, num_rows}
+        const at::Tensor& vector_ids, // {n_matrices, num_rows}
+        const at::Tensor& buckets_count, // {n_matrices, max_buckets}
+        const at::Tensor& buckets_index, // {n_matrices, total_buckets}
+        const at::Tensor& buckets_index_inv, // {n_matrices, max_buckets}
+        const at::Tensor& random_vectors, // {L, H}
+        const int64_t input_height,
+        const int64_t input_width,
+        const int64_t pad_height,
+        const int64_t pad_width,
+        const int64_t stride_height,
+        const int64_t stride_width,
+        const int64_t param_H,
+        const float alpha,
+        const float sigma,
+        const bool do_bias)
+        : input_row(input_row)
+        , inputCentroids(inputCentroids)
+        , weights(weights)
+        , gradOutput(gradOutput)
+        , vector_index(vector_index)
+        , vector_ids(vector_ids)
+        , buckets_count(buckets_count)
+        , buckets_index(buckets_index)
+        , buckets_index_inv(buckets_index_inv)
+        , random_vectors(random_vectors)
+        , input_height(input_height)
+        , input_width(input_width)
+        , pad_height(pad_height)
+        , pad_width(pad_width)
+        , stride_height(stride_height)
+        , stride_width(stride_width)
+        , param_H(param_H)
+        , alpha(alpha)
+        , sigma(sigma)
+        , do_bias(do_bias)
+    {
+        // printf("input_row = %d, %d, %d\n", input_row.size(0), input_row.size(1), input_row.size(2));
+        // printf("inputCentroids = %d, %d, %d\n", inputCentroids.size(0), inputCentroids.size(1), inputCentroids.size(2));
+        // printf("weights = %d, %d, %d, %d\n", weights.size(0), weights.size(1), weights.size(2), weights.size(3));
+        // printf("gradOutput = %d, %d, %d, %d\n", gradOutput.size(0), gradOutput.size(1), gradOutput.size(2), gradOutput.size(3));
+        // printf("vector_index = %d, %d\n", vector_index.size(0), vector_index.size(1));
+        // std::cout << "vector_index = " << vector_index << std::endl;
+        // printf("vector_ids = %d, %d\n", vector_ids.size(0), vector_ids.size(1));
+        // std::cout << "vector_ids = " << vector_ids << std::endl;
+        // printf("buckets_count = %d, %d\n", buckets_count.size(0), buckets_count.size(1));
+        // std::cout << "buckets_count = " << buckets_count << std::endl;
+        // printf("buckets_index = %d, %d\n", buckets_index.size(0), buckets_index.size(1));
+        // std::cout << "buckets_index = " << buckets_index << std::endl;
+        // printf("buckets_index_inv = %d, %d\n", buckets_index_inv.size(0), buckets_index_inv.size(1));
+        // std::cout << "buckets_index_inv = " << buckets_index_inv << std::endl;
+        // printf("random_vectors = %d, %d\n", random_vectors.size(0), random_vectors.size(1));
+        // printf("input_height = %d\n", input_height);
+        // printf("input_width = %d\n", input_width);
+        // printf("pad_height = %d\n", pad_height);
+        // printf("pad_width = %d\n", pad_width);
+        // printf("stride_height = %d\n", stride_height);
+        // printf("stride_width = %d\n", stride_width);
+        // printf("param_H = %d\n", param_H);
+        // printf("alpha = %f\n", alpha);
+        // printf("sigma = %f\n", sigma);
+        // printf("do_bias = %d\n", do_bias);
 
-    cudaStream_t stream = at::cuda::getCurrentCUDAStream();
-
-    at::IntArrayRef output_size = gradOutput.sizes();
-    at::IntArrayRef kernel_size = weights.sizes();
-    int64_t max_buckets = inputCentroids.size(1);
-    int64_t param_L = inputCentroids.size(2);
-    int64_t num_rows = vector_index.size(1);
-    int64_t n_matrices = vector_index.size(0);
-
-    at::Tensor gradOutput_centroids = get_gradOutputSum(stream, gradOutput, vector_index, max_buckets);
-
-    std::vector<at::Tensor> gradParas = get_gradParameters(stream, kernel_size,
-        inputCentroids, gradOutput_centroids, vector_index, do_bias);
-
-    get_gradOutputCentroids_div_cuda(stream, gradOutput_centroids, buckets_count); // ? Not before get_gradParameters?
-    // std::cout << "gradOutput_centroids = " << gradOutput_centroids[0][0] << std::endl;
-
-    std::vector<at::Tensor> gradInput_info = get_gradInput(stream, output_size,
-        weights, gradOutput_centroids, vector_index, input_height, input_width,
-        pad_height, pad_width, stride_height, stride_width, param_L);
-
-    // DEBUG_INFO
-    at::Tensor gradInput = gradInput_info[0];
-    at::Tensor gradInput_centroids = gradInput_info[1];
-
-    at::Tensor gradIndex = input_row.bmm(gradInput_centroids.transpose(1, 2));
-    at::Tensor input_matrix = input_row.reshape({ n_matrices * num_rows, param_L });
-    at::Tensor hash_bits = 1 / (1 + exp(-1 * alpha * (input_matrix.mm(random_vectors) - 0.1 / pow(2, param_H))));
-    auto gradHash = get_gradHash(stream, vector_ids, buckets_count, buckets_index, buckets_index_inv, input_matrix, hash_bits, gradIndex, max_buckets, param_L, param_H, sigma, alpha);
-
-    at::Tensor gradWeights = gradParas[0];
-    if (do_bias) {
-        at::Tensor gradBias = gradParas[1];
-        return { gradInput, gradWeights, gradBias, gradHash };
+        CHECK_INPUT(input_row);
+        CHECK_INPUT(gradOutput);
+        CHECK_INPUT(weights);
+        CHECK_INPUT(inputCentroids);
+        CHECK_INPUT(vector_index);
+        CHECK_INPUT(vector_ids);
+        CHECK_INPUT(buckets_count);
+        CHECK_INPUT(buckets_index);
+        CHECK_INPUT(buckets_index_inv);
+        CHECK_INPUT(random_vectors);
     }
-    return { gradInput, gradWeights, gradHash };
-}
+
+    std::vector<at::Tensor> backward()
+    {
+        cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+
+        at::IntArrayRef output_size = gradOutput.sizes();
+        at::IntArrayRef kernel_size = weights.sizes();
+        int64_t max_buckets = inputCentroids.size(1);
+        int64_t param_L = inputCentroids.size(2);
+        int64_t num_rows = vector_index.size(1);
+        int64_t n_matrices = vector_index.size(0);
+
+        printf("Look\n");
+
+        at::Tensor gradOutput_centroids = get_gradOutputSum(stream, gradOutput, vector_index, max_buckets);
+
+        std::vector<at::Tensor> gradParas = get_gradParameters(stream, kernel_size,
+            inputCentroids, gradOutput_centroids, vector_index, do_bias);
+
+        get_gradOutputCentroids_div_cuda(stream, gradOutput_centroids, buckets_count); // ? Not before get_gradParameters?
+        // std::cout << "gradOutput_centroids = " << gradOutput_centroids[0][0] << std::endl;
+
+        std::vector<at::Tensor> gradInput_info = get_gradInput(stream, output_size,
+            weights, gradOutput_centroids, vector_index, input_height, input_width,
+            pad_height, pad_width, stride_height, stride_width, param_L);
+
+        // DEBUG_INFO
+        at::Tensor gradInput = gradInput_info[0];
+        at::Tensor gradInput_centroids = gradInput_info[1];
+
+        printf("Here\n");
+
+        at::Tensor gradIndex = input_row.bmm(gradInput_centroids.transpose(1, 2));
+        at::Tensor input_matrix = input_row.reshape({ n_matrices * num_rows, param_L });
+        at::Tensor hash_bits = 1 / (1 + exp(-1 * alpha * (input_matrix.mm(random_vectors) - 0.1 / pow(2, param_H))));
+        auto gradHash = get_gradHash(stream, vector_ids, buckets_count, buckets_index, buckets_index_inv, input_matrix, hash_bits, gradIndex, max_buckets, param_L, param_H, sigma, alpha);
+
+        at::Tensor gradWeights = gradParas[0];
+        if (do_bias) {
+            at::Tensor gradBias = gradParas[1];
+            return { gradInput, gradWeights, gradBias, gradHash };
+        }
+        return { gradInput, gradWeights, gradHash };
+    }
+};
 
 at::Tensor get_gradHash(
     cudaStream_t& stream,
@@ -257,17 +340,24 @@ at::Tensor get_gradOutputSum(
     const at::Tensor& vector_index, // {n_matrices, num_rows}
     const int64_t max_buckets)
 {
+    printf("get_gradOutputSum\n");
     int64_t batch_size = gradOutput.size(0);
+    printf("batch_size = %d\n", batch_size);
     int64_t nOutputPlane = gradOutput.size(1);
+    printf("nOutputPlane = %d\n", nOutputPlane);
     int64_t outputHeight = gradOutput.size(2);
+    printf("outputHeight = %d\n", outputHeight);
     int64_t outputWidth = gradOutput.size(3);
+    printf("outputWidth = %d\n", outputWidth);
     int64_t n_matrices = vector_index.size(0);
+    printf("n_matrices = %d\n", n_matrices);
 
     // [batch_size * outputHeight * outputWidth, nOutputPlane]
     at::Tensor gradOutput_mat = gradOutput.reshape({ batch_size, nOutputPlane,
                                                        outputHeight * outputWidth })
                                     .transpose(1, 2)
                                     .reshape({ -1, nOutputPlane });
+    printf("gradOutput_mat = %d, %d\n", gradOutput_mat.size(0), gradOutput_mat.size(1));
     // DEBUG_INFO
     at::Tensor gradOutput_centroids = at::zeros({ n_matrices, max_buckets, nOutputPlane }, gradOutput.options());
     // DEBUG_INFO
@@ -297,4 +387,51 @@ void get_gradInput_rows(
     at::Tensor gradInput_centroids = gradOutput_centroids.bmm(weights_matrices);
     // DEBUG_INFO
     reconstruct_gradInputRows_cuda(stream, vector_index, gradInput_centroids, gradInput_rows);
+}
+
+std::vector<at::Tensor> conv_deep_reuse_backward(
+    const at::Tensor input_row, // {n_matrices, num_row, param_L}
+    const at::Tensor inputCentroids, // {n_matrices, max_buckets, param_L}
+    const at::Tensor weights, // {nOutputPlane, nInputPlane, kH, kW}
+    const at::Tensor gradOutput, // {N, K, outH, outW}
+    const at::Tensor vector_index, // {n_matrices, num_rows}
+    const at::Tensor vector_ids, // {n_matrices, num_rows}
+    const at::Tensor buckets_count, // {n_matrices, max_buckets}
+    const at::Tensor buckets_index, // {n_matrices, total_buckets}
+    const at::Tensor buckets_index_inv, // {n_matrices, max_buckets}
+    const at::Tensor random_vectors, // {L, H}
+    const int64_t input_height,
+    const int64_t input_width,
+    const int64_t pad_height,
+    const int64_t pad_width,
+    const int64_t stride_height,
+    const int64_t stride_width,
+    const int64_t param_H,
+    const float alpha,
+    const float sigma,
+    const bool do_bias)
+{
+    auto covDeepReuseBackward = CovDeepReuseBackward {
+        input_row,
+        inputCentroids,
+        weights,
+        gradOutput,
+        vector_index,
+        vector_ids,
+        buckets_count,
+        buckets_index,
+        buckets_index_inv,
+        random_vectors,
+        input_height,
+        input_width,
+        pad_height,
+        pad_width,
+        stride_height,
+        stride_width,
+        param_H,
+        alpha,
+        sigma,
+        do_bias
+    };
+    return covDeepReuseBackward.backward();
 }

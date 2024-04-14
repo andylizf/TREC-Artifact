@@ -19,6 +19,7 @@
     CHECK_CONTIGUOUS(x)
 
 class CovDeepReuse {
+private:
     at::Tensor inputs;
     int64_t batch_size, nInputPlane, inputHeight, inputWidth;
     at::Tensor weights;

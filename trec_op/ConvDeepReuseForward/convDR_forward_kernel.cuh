@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 
-#define CUDA_NUM_THREADS 1024
+#define CUDA_NUM_THREADS 256
 
 // 表示线程数大于当前grid开启上限时，一直在block中循环线程计算直到完成任务。
 // CUDA_1D_KERNEL_LOOP see https://stackoverflow.com/questions/39470116/tensorflow-what-does-index-denote-in-cuda-1d-kernel-loopindex-nthreads-op-us

@@ -7,13 +7,14 @@
 
 #include "convDR_backward.h"
 #include "convDR_backward_kernel.cuh"
-// #include "func_utilis.h"
 
 #define CHECK_CUDA(x) TORCH_CHECK(x.is_cuda(), #x " must be a CUDA tensor")
 #define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
 #define CHECK_INPUT(x) \
     CHECK_CUDA(x);     \
     CHECK_CONTIGUOUS(x)
+
+#define CHECK_SHAPE(x, s) TORCH_CHECK(x.sizes() == s, #x " must have the same shape as " #s)
 
 at::Tensor get_gradOutputSum(
     cudaStream_t& stream,
@@ -58,7 +59,6 @@ std::vector<at::Tensor> get_gradInput(
     const int64_t stride_width,
     const int64_t param_L)
 {
-    printf("get_gradInput\n");
     int64_t n_matrices = gradOutput_centroids.size(0);
 
     int64_t batch_size = output_size[0];
@@ -66,8 +66,6 @@ std::vector<at::Tensor> get_gradInput(
     int64_t n_input_plane = weights.size(1);
     int64_t kernel_height = weights.size(2);
     int64_t kernel_width = weights.size(3);
-    // int64_t input_height = (outputHeight - 1) * stride_height + kernel_height - 2 * pad_height;
-    // int64_t input_width = (outputWidth - 1) * stride_width + kernel_width - 2 * pad_width;
 
     int64_t num_rows = vector_index.size(1);
     int64_t row_length = n_matrices * param_L;
@@ -75,17 +73,14 @@ std::vector<at::Tensor> get_gradInput(
 
     at::Tensor weights_matrices = weights.reshape({ nOutputPlane, n_matrices, param_L }).transpose(0, 1).contiguous();
     at::Tensor gradInput_centroids = gradOutput_centroids.bmm(weights_matrices);
-    // get gradInput_rows
     reconstruct_gradInputRows_cuda(stream, vector_index, gradInput_centroids, gradInput_rows);
 
     at::Tensor gradInputs = at::zeros({ batch_size, n_input_plane, input_height, input_width },
         gradOutput_centroids.options());
-    // DEBUG_INFO
     row2im_batch_cuda(stream, gradInput_rows, gradInputs,
         kernel_height, kernel_width,
         pad_height, pad_width,
         stride_height, stride_width);
-    // DEBUG_INFO
     return { gradInputs, gradInput_centroids };
 }
 
@@ -97,57 +92,30 @@ std::vector<at::Tensor> get_gradParameters(
     const at::Tensor& vector_index,
     const bool do_bias)
 {
-    printf("get_gradParameters\n");
     int64_t nOutputPlane = gradOutput_centroids.size(2);
 
-    printf("nOutputPlane = %d\n", nOutputPlane);
-
     at::Tensor inputCentroids_col = inputCentroids.transpose(1, 2).contiguous();
-    // DEBUG_INFO
     // * inputCentroids_col = {n_matrices, param_L, max_buckets}
 
-    printf("inputCentroids_col = %d, %d, %d\n", inputCentroids_col.size(0), inputCentroids_col.size(1), inputCentroids_col.size(2));
-    printf("gradOutput_centroids = %d, %d, %d\n", gradOutput_centroids.size(0), gradOutput_centroids.size(1), gradOutput_centroids.size(2));
-
-    printf("Thus\n");
     at::Tensor gradWeights = inputCentroids_col.bmm(gradOutput_centroids);
 
     // [n_matrices, param_L, nOutputPlane]
 
-    printf("Finally\n");
-
     gradWeights = gradWeights.reshape({ -1, nOutputPlane });
     // [n_matrices * param_L, nOutputPlane]
-
-    printf("vectors\n");
 
     gradWeights = gradWeights.transpose(0, 1);
     // [nOutputPlane, n_matrices * param_L]
 
-    printf("done\n");
-
-    printf("trying to reshape gradWeights=%d, %d\n", gradWeights.size(0), gradWeights.size(1));
-    printf("kernel_size=%d, %d, %d, %d\n", kernel_size[0], kernel_size[1], kernel_size[2], kernel_size[3]);
-
     gradWeights = gradWeights.reshape(kernel_size);
     // * gradWeights = {nOutputPlane, nInputPlane, kernel_height, kernel_width}
 
-    printf("Here\n");
-
-    // DEBUG_INFO
     if (do_bias) {
         at::Tensor gradBias = gradOutput_centroids[0].sum(0); // ? [0]
-        printf("Umm\n");
         return { gradWeights, gradBias };
     }
-
-    printf("I am here\n");
-    // DEBUG_INFO
-
     return { gradWeights };
 }
-
-#define CHECK_SHAPE(x, s) TORCH_CHECK(x.sizes() == s, #x " must have the same shape as " #s)
 
 class CovDeepReuseBackward {
 private:
@@ -264,25 +232,19 @@ public:
         int64_t num_rows = vector_index.size(1);
         int64_t n_matrices = vector_index.size(0);
 
-        printf("Look\n");
-
         at::Tensor gradOutput_centroids = get_gradOutputSum(stream, gradOutput, vector_index, max_buckets);
 
         std::vector<at::Tensor> gradParas = get_gradParameters(stream, kernel_size,
             inputCentroids, gradOutput_centroids, vector_index, do_bias);
 
         get_gradOutputCentroids_div_cuda(stream, gradOutput_centroids, buckets_count); // ? Not before get_gradParameters?
-        // std::cout << "gradOutput_centroids = " << gradOutput_centroids[0][0] << std::endl;
 
         std::vector<at::Tensor> gradInput_info = get_gradInput(stream, output_size,
             weights, gradOutput_centroids, vector_index, input_height, input_width,
             pad_height, pad_width, stride_height, stride_width, param_L);
 
-        // DEBUG_INFO
         at::Tensor gradInput = gradInput_info[0];
         at::Tensor gradInput_centroids = gradInput_info[1];
-
-        printf("Here\n");
 
         at::Tensor gradIndex = input_row.bmm(gradInput_centroids.transpose(1, 2));
         at::Tensor input_matrix = input_row.reshape({ n_matrices * num_rows, param_L });
@@ -319,14 +281,11 @@ at::Tensor get_gradHash(
 
     at::Tensor grad_Hash_value = (vector_ids.unsqueeze(2).repeat({ 1, 1, max_buckets }) + 1).to(gradIndex.options()) / (buckets_index_inv.unsqueeze(1).repeat({ 1, num_rows, 1 }) + 1).to(gradIndex.options()) - 1;
     grad_Hash_value = -1 * grad_Hash_value / (sigma * sigma) * exp(-1 * grad_Hash_value * grad_Hash_value / (2 * sigma * sigma)) * gradIndex / buckets_count.unsqueeze(1).repeat({ 1, num_rows, 1 }).to(gradIndex.options());
-    // at::Tensor grad_Hash_value = at::zeros({n_matrices, num_rows, max_buckets}, gradIndex.options());
-    // gradIndex = gradIndex / buckets_count.unsqueeze(1).repeat({1, num_rows, 1}).to(gradIndex.options());
     at::Tensor power = at::zeros({ n_matrices, max_buckets, param_H }, gradIndex.options());
     at::Tensor zero = at::zeros({ n_matrices, num_rows, max_buckets }, gradIndex.options());
     grad_Hash_value = at::where(grad_Hash_value.isnan(), zero, grad_Hash_value);
 
     get_Power(stream, buckets_index, power, max_buckets, param_H);
-    // grad_Hash_value = -1 * grad_Hash_value / (sigma * sigma) * exp(-1 * grad_Hash_value * grad_Hash_value / (2 * sigma * sigma)) * gradIndex;
     at::Tensor gradHash = grad_Hash_value.bmm(power).reshape({ num_rows * n_matrices, param_H });
 
     gradHash = (alpha * hash_bits * (1 - hash_bits)) * gradHash;
@@ -340,27 +299,18 @@ at::Tensor get_gradOutputSum(
     const at::Tensor& vector_index, // {n_matrices, num_rows}
     const int64_t max_buckets)
 {
-    printf("get_gradOutputSum\n");
     int64_t batch_size = gradOutput.size(0);
-    printf("batch_size = %d\n", batch_size);
     int64_t nOutputPlane = gradOutput.size(1);
-    printf("nOutputPlane = %d\n", nOutputPlane);
     int64_t outputHeight = gradOutput.size(2);
-    printf("outputHeight = %d\n", outputHeight);
     int64_t outputWidth = gradOutput.size(3);
-    printf("outputWidth = %d\n", outputWidth);
     int64_t n_matrices = vector_index.size(0);
-    printf("n_matrices = %d\n", n_matrices);
 
     // [batch_size * outputHeight * outputWidth, nOutputPlane]
     at::Tensor gradOutput_mat = gradOutput.reshape({ batch_size, nOutputPlane,
                                                        outputHeight * outputWidth })
                                     .transpose(1, 2)
                                     .reshape({ -1, nOutputPlane });
-    printf("gradOutput_mat = %d, %d\n", gradOutput_mat.size(0), gradOutput_mat.size(1));
-    // DEBUG_INFO
     at::Tensor gradOutput_centroids = at::zeros({ n_matrices, max_buckets, nOutputPlane }, gradOutput.options());
-    // DEBUG_INFO
     get_gradOutputCentroids_add_cuda(stream, vector_index, gradOutput_mat, gradOutput_centroids);
 
     return gradOutput_centroids;
@@ -374,7 +324,6 @@ void get_gradInput_rows(
     const int64_t param_L,
     at::Tensor& gradInput_rows)
 {
-
     int64_t nOutputPlane = weights.size(0);
     int64_t n_matrices = gradOutput_centroids.size(0);
 
@@ -382,10 +331,8 @@ void get_gradInput_rows(
                                                       param_L })
                                       .transpose(0, 1)
                                       .contiguous();
-    // DEBUG_INFO
 
     at::Tensor gradInput_centroids = gradOutput_centroids.bmm(weights_matrices);
-    // DEBUG_INFO
     reconstruct_gradInputRows_cuda(stream, vector_index, gradInput_centroids, gradInput_rows);
 }
 

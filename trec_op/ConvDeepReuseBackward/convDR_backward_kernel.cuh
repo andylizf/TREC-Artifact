@@ -45,22 +45,16 @@ __global__ void get_gradOutputCentroids_add_cuda_kernel(
     const int64_t num_rows, // batch_size * outputHeight * outputWidth
     const int64_t n_matrices)
 {
-    // printf("get_gradOutputCentroids_add_cuda_kernel\n");
     CUDA_1D_KERNEL_LOOP(global_id, num_rows * n_matrices)
     {
         int vect_index = vector_index[global_id];
-        // int64_t matrix_offset = global_id % num_rows;
         int64_t matrix_id = global_id / num_rows;
         int64_t vec_id = global_id % num_rows;
         int64_t buck_offset = matrix_id * max_buckets + vect_index;
 
         scalar_t* buck_start = gradOutput_centroids + buck_offset * n_output_plane;
-        // const scalar_t *vect_start = gradOutput_mat + global_id * n_output_plane;   // ??? global_id, sure?
         const scalar_t* vect_start = gradOutput_mat + vec_id * n_output_plane;
         for (int i = 0; i < n_output_plane; i++) {
-            // printf("block (%d, %d, %d) thread(%d, %d, %d)\ngradOutput_mat[%ld][%d][%d] = %f\n",
-            //     blockIdx.x, blockIdx.y, blockIdx.z, threadIdx.x, threadIdx.y, threadIdx.z,
-            //     matrix_id, vect_index, i, vect_start[i]);
             atomicAdd(buck_start + i, vect_start[i]);
         }
         // for all matrix_id in n_matrices:
@@ -92,7 +86,6 @@ void get_gradOutputCentroids_add_cuda(
                 num_rows,
                 n_matrices);
     }));
-    // ! fixme: cuda memory error
     MY_CUDA_CHECK(cudaGetLastError());
 }
 
@@ -286,45 +279,18 @@ template <typename scalar_t>
 __global__ void get_Power_kernel(
     const int64_t n,
     const int* buckets_index,
-    // const int* buckets_count,
-    // const int* vector_index,
-    // scalar_t* gradIndex,
-    // scalar_t* grad_Hash_value,
     scalar_t* power,
-    // const int64_t n_matrices,
     const int64_t max_buckets,
     const int64_t total_buckets,
-    // const int64_t num_rows,
-    const int64_t H
-    // const float sigma
-)
+    const int64_t H)
 {
-
     CUDA_1D_KERNEL_LOOP(index, n)
     {
-        // int64_t idx = index / num_rows;
         int64_t matrix_id = index / total_buckets;
         scalar_t bucket = (scalar_t)(index % total_buckets);
-        // printf("1\n");
         int64_t bucket_id = buckets_index[index];
-        // printf("2\n");
         if (bucket_id < 0)
             return;
-        // int64_t count = buckets_count[matrix_id * max_buckets + bucket_id];
-
-        // for (int64_t vid = 0; vid < num_rows; vid++) {
-        //     // gradIndex[matrix_id * max_buckets * num_rows + bucket_id * num_rows + vid] /= count;
-        //     scalar_t value = vector_index[matrix_id * num_rows + vid] / (bucket + 1.0) - 1;
-        //     // if(bucket == 598 && n_matrices==0)
-        //     //     printf("numer=%f, denomer=%f, value=%f\n", Hash_Value[matrix_id * max_buckets * num_rows + bucket_id * num_rows + vid], bucket + 1.0, value);
-        //     grad_Hash_value[matrix_id * max_buckets * num_rows + vid * max_buckets + bucket_id] = value;
-        //     gradIndex[matrix_id * max_buckets * num_rows + vid * max_buckets + bucket_id] /= count;
-        //     // grad_Hash_value[matrix_id * max_buckets * num_rows + vid * max_buckets + bucket_id] = -1 * value / (sigma * sigma)
-        //     //                 * exp(-1 * value * value / (2 * sigma * sigma))
-        //     //                 * gradIndex[matrix_id * max_buckets * num_rows + bucket_id * num_rows + vid] / count;
-        //     // grad_Hash_value[matrix_id * max_buckets * num_rows + bucket_id * num_rows + vid] = value;
-        //     // printf("value=%f, value2=%f, gaussian=%f, gradHash=%f\n", value, -1 * (value - 1) / (sigma * sigma), exp(-1 * (value - 1) * (value - 1) / (2 * sigma * sigma)), gradIndex[matrix_id * max_buckets * num_rows + bucket_id * num_rows + vid] / count);
-        // }
         for (int64_t i = 0; i < H; i++) {
             power[matrix_id * max_buckets * H + bucket_id * H + i] = pow(2, H - 1 - i) / (bucket + 1.0);
         }
@@ -334,21 +300,13 @@ __global__ void get_Power_kernel(
 void get_Power(
     cudaStream_t& stream,
     const at::Tensor& buckets_index,
-    // const at::Tensor &buckets_count,
-    // const at::Tensor &vector_index,
-    // at::Tensor &gradIndex,
-    // at::Tensor &grad_Hash_value,
     at::Tensor& power,
     const int64_t max_buckets,
     const int64_t param_H)
 {
 
     int64_t n_matrices = buckets_index.size(0);
-    // int64_t max_buckets = buckets_count.size(1);
-    // int64_t num_rows = vector_index.size(1);
-    // std::cout << n_matrices << ", " << max_buckets << ", " << num_rows << std::endl;
     int64_t total_buckets = buckets_index.size(1);
-    // std::cout << n_matrices << ", " << max_buckets << ", " << num_rows << ", " << total_buckets << std::endl;
 
     int64_t num_kernels = n_matrices * total_buckets;
     AT_DISPATCH_FLOATING_TYPES(power.scalar_type(), "get_Power", ([&] {
@@ -356,15 +314,9 @@ void get_Power(
             <<<GET_BLOCKS(num_kernels), CUDA_NUM_THREADS, 0, stream>>>(
                 num_kernels,
                 buckets_index.data_ptr<int>(),
-                // buckets_count.data_ptr<int>(),
-                // vector_index.data_ptr<int>(),
-                // gradIndex.data_ptr<scalar_t>(),
-                // grad_Hash_value.data_ptr<scalar_t>(),
                 power.data_ptr<scalar_t>(),
-                // n_matrices,
                 max_buckets,
                 total_buckets,
-                // num_rows,
                 param_H);
     }));
     MY_CUDA_CHECK(cudaGetLastError());

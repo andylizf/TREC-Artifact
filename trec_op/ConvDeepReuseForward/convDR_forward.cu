@@ -20,13 +20,13 @@
 
 class CovDeepReuse {
 private:
-    at::Tensor inputs;
+    at::Tensor inputs; // [batch_size, nInputPlane, inputHeight, inputWidth]
     int64_t batch_size, nInputPlane, inputHeight, inputWidth;
-    at::Tensor weights;
+    at::Tensor weights; // [nOutputPlane, nInputPlane, kernel_height, kernel_width]
     int64_t nOutputPlane, kernel_height, kernel_width;
     bool do_bias;
     at::Tensor bias;
-    at::Tensor random_vectors;
+    at::Tensor random_vectors; // [param_L, param_H]
     int64_t pad_height, pad_width, stride_height, stride_width;
     int64_t param_L, param_H;
     bool is_training;
@@ -51,10 +51,10 @@ private:
     }
 
 public:
-    CovDeepReuse(const at::Tensor& inputs, // [batch_size, nInputPlane, inputHeight, inputWidth]
-        const at::Tensor& weights, // [nOutputPlane, nInputPlane, kernel_height, kernel_width]
+    CovDeepReuse(const at::Tensor& inputs,
+        const at::Tensor& weights,
         const at::Tensor& bias,
-        const at::Tensor& random_vectors, // [param_L, param_H]
+        const at::Tensor& random_vectors,
         const int64_t pad_height,
         const int64_t pad_width,
         const int64_t stride_height,
@@ -90,15 +90,6 @@ public:
         , outputWidth((inputWidth + 2 * pad_width - kernel_width) / stride_width + 1)
         , num_rows(batch_size * outputHeight * outputWidth)
     {
-        // printf("conv_deep_reuse_forward\n");
-        // printf("inputs.size() = %d, %d, %d, %d\n", inputs.size(0), inputs.size(1), inputs.size(2), inputs.size(3));
-        // printf("weights.size() = %d, %d, %d, %d\n", weights.size(0), weights.size(1), weights.size(2), weights.size(3));
-        // printf("bias.size() = %d\n", bias.size(0));
-        // printf("random_vectors.size() = %d, %d\n", random_vectors.size(0), random_vectors.size(1));
-        // printf("pad_height = %d, pad_width = %d, stride_height = %d, stride_width = %d\n", pad_height, pad_width, stride_height, stride_width);
-        // printf("param_L = %d, param_H = %d\n", param_L, param_H);
-        // printf("do_bias = %d, is_training = %d, print_rc = %d\n", do_bias, is_training, print_rc);
-
         CHECK_INPUT(inputs);
         CHECK_INPUT(weights);
         CHECK_INPUT(bias);

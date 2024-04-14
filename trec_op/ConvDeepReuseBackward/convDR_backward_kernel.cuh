@@ -69,7 +69,6 @@ void get_gradOutputCentroids_add_cuda(
     const at::Tensor& gradOutput_mat,
     at::Tensor& gradOutput_centroids)
 {
-    printf("get_gradOutputCentroids_add_cuda\n");
     int64_t num_rows = gradOutput_mat.size(0);
     int64_t n_output_plane = gradOutput_mat.size(1);
     int64_t n_matrices = gradOutput_centroids.size(0);
@@ -112,7 +111,6 @@ void get_gradOutputCentroids_div_cuda(
     at::Tensor& gradOutput_centroids, // {n_matrices, max_buckets, nOutputPlane}
     const at::Tensor& buckets_count)
 {
-    printf("get_gradOutputCentroids_div_cuda\n");
     int64_t num_buckets = gradOutput_centroids.size(0) * gradOutput_centroids.size(1);
     int64_t vector_len = gradOutput_centroids.size(2);
 

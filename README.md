@@ -134,3 +134,10 @@ mbed compile -t GCC_ARM -m DISCO_F469NI --source . --source ../squeeze_complex_b
 We use a timer `t` in the code to record time.
 For other networks, change the source files during compilation time.
 One thing to note is that we provide the original squeezeNet, users can easily select some convolutional layer and replace it with the trec version and the results shown is under the situation where all the convolutional layers are replaced with trec.
+
+### Contributing
+
+Install pybind in addition to pytorch and cuda.
+```shell
+pip install "pybind11[global]"
+```

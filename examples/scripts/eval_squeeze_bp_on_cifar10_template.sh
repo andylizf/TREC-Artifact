@@ -20,3 +20,15 @@ python ../eval_model.py \
   --bp_L=12,4,32,128 \
   --bp_H=5,8,5,5 \
   --gpu=0
+
+echo "==============================="
+
+# Run Evaluation.
+python ../eval_model.py \
+  --model_path=${MODEL_PATH} \
+  --dataset_path=${DATASET_DIR} \
+  --model_name=Squeeze_complex_bypass \
+  --batch_size=100 \
+  --trec=0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 \
+  --bp_trec=0,0,0,0 \
+  --gpu=0

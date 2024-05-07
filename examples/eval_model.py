@@ -81,7 +81,13 @@ def main():
 
     net = utils.get_network(args)
     net.eval()
-    net.load_state_dict(torch.load(args.model_path))
+    
+    fallback_trad_conv = not any(args.trec)
+    if fallback_trad_conv:
+        net.load_state_dict(torch.load(args.model_path), strict=False)
+    else:
+        net.load_state_dict(torch.load(args.model_path))
+        
     net = net.cuda()
     test(net, testset, testloader)
 

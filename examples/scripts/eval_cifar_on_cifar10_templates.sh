@@ -17,3 +17,14 @@ python ../eval_model.py \
   --L=5,10 \
   --H=15,10 \
   --gpu=0
+
+echo "===================="
+
+# baseline without trec
+python ../eval_model.py \
+  --model_path=${MODEL_PATH} \
+  --dataset_path=../../data \
+  --model_name=CifarNet \
+  --batch_size=100 \
+  --trec=0,0 \
+  --gpu=0

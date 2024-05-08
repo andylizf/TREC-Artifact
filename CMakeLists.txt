@@ -15,19 +15,19 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Set CUDA related paths
-set(CUDA_TOOLKIT_ROOT_DIR "/home/lizhifei/miniconda3/envs/trec")
-set(CUDA_INCLUDE_DIRS "/home/lizhifei/miniconda3/envs/trec/include")
-set(CMAKE_CUDA_COMPILER "/home/lizhifei/miniconda3/envs/trec/bin/nvcc")
+set(CUDA_TOOLKIT_ROOT_DIR "/home/lizhifei/miniconda3/envs/trec2")
+set(CUDA_INCLUDE_DIRS "/home/lizhifei/miniconda3/envs/trec2/include")
+set(CMAKE_CUDA_COMPILER "/home/lizhifei/miniconda3/envs/trec2/bin/nvcc")
 
 # Ensure CMake can find PyTorch and other required packages in your Conda environment
-list(APPEND CMAKE_PREFIX_PATH "/home/lizhifei/miniconda3/envs/trec")
+list(APPEND CMAKE_PREFIX_PATH "/home/lizhifei/miniconda3/envs/trec2")
 
 # Find CUDA
 find_package(CUDA REQUIRED)
 include_directories(${CUDA_INCLUDE_DIRS})
 
 # Find PyTorch
-set(Torch_DIR /home/lizhifei/miniconda3/envs/trec/lib/python3.12/site-packages/torch/share/cmake/Torch)
+set(Torch_DIR /home/lizhifei/miniconda3/envs/trec2/lib/python3.12/site-packages/torch/share/cmake/Torch)
 find_package(Torch REQUIRED)
 
 # Find Pybind11
@@ -47,15 +47,15 @@ if(USE_NVTX)
     )
 
     # Link libraries to the executable
-    link_directories(/home/lizhifei/miniconda3/envs/trec/lib)
+    link_directories(/home/lizhifei/miniconda3/envs/trec2/lib)
 
     target_link_libraries(prof PRIVATE 
         ${TORCH_LIBRARIES} 
         pybind11::pybind11
         ${CUDA_LIBRARIES} 
-        /home/lizhifei/miniconda3/envs/trec/lib/libnvToolsExt.so 
+        /home/lizhifei/miniconda3/envs/trec2/lib/libnvToolsExt.so 
         dl
-        /home/lizhifei/miniconda3/envs/trec/lib/libpython3.12.so
+        /home/lizhifei/miniconda3/envs/trec2/lib/libpython3.12.so
     )
 
     # Additional compiler options
@@ -69,13 +69,13 @@ else()
     )
 
     # Link libraries to the executable
-    link_directories(/home/lizhifei/miniconda3/envs/trec/lib)
+    link_directories(/home/lizhifei/miniconda3/envs/trec2/lib)
 
     target_link_libraries(prof PRIVATE 
         ${TORCH_LIBRARIES} 
         pybind11::pybind11
         ${CUDA_LIBRARIES} 
-        /home/lizhifei/miniconda3/envs/trec/lib/libpython3.12.so
+        /home/lizhifei/miniconda3/envs/trec2/lib/libpython3.12.so
     )
 
 endif()

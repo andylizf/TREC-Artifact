@@ -264,6 +264,7 @@ __global__ void reconstruct_output_cuda_kernel(
         int64_t batch_id = idx / image_size;
 
         int64_t out_offset = image_offset + image_size * (k_out + n_output_plane * batch_id);
+        scalar_t sum = 0.0;
 #pragma unroll
         // reconstructed_output[batch_id][k_out][image_offset]
         // = sum_{i=0}^{n_matrices} centroids_after_mm[i][vector_index[i][batch_id][image_offset]][k_out]
@@ -272,15 +273,9 @@ __global__ void reconstruct_output_cuda_kernel(
             int buck_index = vector_index[global_id]; // vector_index[matrix_id][idx]
             int64_t buck_offset = matrix_id * max_buckets + buck_index;
             int64_t in_offset = buck_offset * n_output_plane + k_out;
-            reconstructed_output[out_offset] += centroids_after_mm[in_offset];
+            sum += centroids_after_mm[in_offset];
         }
-        // int64_t global_id = idx;    // vector id in vector_index
-
-        // idx = idx / image_size;
-        // int64_t batch_id = idx % batch_size;
-        // int64_t matrix_id = idx / batch_size;
-
-        // atomicAdd(&reconstructed_output[out_offset], centroids_after_mm[in_offset]);
+        reconstructed_output[out_offset] = sum;
     }
 }
 

@@ -24,7 +24,7 @@ def get_extensions():
     sources = [main_source] + sources
     extension = CppExtension
 
-    extra_compile_args = {"cxx": ["-fopenmp", "-g", "-O0"]}
+    extra_compile_args = {"cxx": ["-fopenmp", "-O3"]}
     define_macros = []
 
     if (torch.cuda.is_available() and CUDA_HOME is not None) or os.getenv("FORCE_CUDA", "0") == "1":
@@ -37,9 +37,7 @@ def get_extensions():
             "-D__CUDA_NO_HALF_CONVERSIONS__",
             "-D__CUDA_NO_HALF2_OPERATORS__",
             "--expt-relaxed-constexpr",
-            "-G",
-            "-g",
-            "-O0"
+            "-O3"
         ]
 
         CC = os.environ.get("CC", None)

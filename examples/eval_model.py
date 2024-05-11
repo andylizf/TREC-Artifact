@@ -67,6 +67,7 @@ def test(net, testset, testloader):
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+    torch.cuda.synchronize()
     print('Inference time (sec): {}'.format(timer() - start))
     print('Accuracy of the network on the 10000 test images: {}'.format(correct / total))
     return correct / total

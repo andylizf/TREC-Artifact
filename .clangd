@@ -1,7 +1,7 @@
 CompileFlags:
-  Add:
-    - --cuda-path=/home/lizhifei/miniconda3/envs/trec
-    - -L/home/lizhifei/miniconda3/envs/trec/lib
-    - -I/home/lizhifei/miniconda3/envs/trec/include
-    - -xcuda # clangd can regconize .cuh file, but clang can't
-    - --cuda-gpu-arch=sm_70
+  Remove:
+    - --generate-dependencies-with-compile
+    - --dependency-output
+    - --expt-relaxed-constexpr
+    - --compiler-options
+    - -gencode*

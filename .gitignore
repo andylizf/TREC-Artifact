@@ -169,3 +169,9 @@ profile-build/*
 
 # CUDA Profiling
 *.nsys-rep
+
+# Compile Database
+compile_commands.json
+
+# Experiment results
+results/

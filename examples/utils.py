@@ -1,12 +1,14 @@
-import os
-import sys
-import torch
-import shutil
-import logging
 import argparse
+import logging
+import os
+import shutil
+import sys
+
 import numpy as np
+import torch
 import torchvision.transforms as transforms
 from torch.autograd import Variable
+
 
 def save_checkpoint(state, is_best, save):
   filename = os.path.join(save, 'checkpoint.pth.tar')
@@ -34,16 +36,18 @@ def create_exp_dir(path, scripts_to_save=None):
 
 
 class SplitArgs(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(self, parser, namespace, values: str, option_string=None):
         setattr(namespace, self.dest, list(map(int, values.split(','))))
 
-def get_network(args):
+def get_network(args) -> torch.nn.Module:
   if args.model_name in ('CifarNet', 'Cifarnet', 'cifarnet', 'Cifar', 'cifar'):
-    from cifarnet import CifarNet_TREC
+    from .models.cifarnet import CifarNet_TREC
     return CifarNet_TREC(args.L, args.H, args.trec)
   elif args.model_name in ('SqueezeNet', 'Squeezenet', 'squeezenet', 'Squeeze', 'squeeze'):
-    from squeezenet import squeezenet_trec
+    from .models.squeezenet import squeezenet_trec
     return squeezenet_trec(args.L, args.H, args.trec)
   elif args.model_name in ('SqueezeNet_Complex_Bypass', 'Squeeze_complex_bypass', 'squeeze_complex_bypass', 'Squeeze_BP', 'Squeeze_bp','squeeze_bp'):
-    from squeezenet_complex_bypass import SqueezeNet_TREC
+    from .models.squeezenet_complex_bypass import SqueezeNet_TREC
     return SqueezeNet_TREC(args.L, args.H, args.bp_L, args.bp_H, args.trec, args.bp_trec)
+  else:
+    raise ValueError(f'Unknown model name: {args.model_name}')

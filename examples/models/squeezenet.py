@@ -7,12 +7,8 @@ As described in https://arxiv.org/pdf/1602.07360.pdf?ref=https://githubhelp.com.
   Forrest N. Iandola, Song Han, Matthew W. Moskewicz, Khalid Ashraf, William J. Dally, Kurt Keutzer
 """
 
-import sys
-sys.path.append("../")
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from timeit import default_timer as timer
 from conv_layer import Conv2d_TREC
 
 
@@ -23,7 +19,8 @@ class Fire(nn.Module):
         super().__init__()
         if trec[0]:
             self.squeeze = nn.Sequential(
-                Conv2d_TREC(in_channel, squzee_channel, 1, params_L[0], params_H[0], idx),
+                Conv2d_TREC(in_channel, squzee_channel, 1,
+                            params_L[0], params_H[0], idx),
                 nn.BatchNorm2d(squzee_channel),
                 nn.ReLU(inplace=True)
             )
@@ -36,7 +33,8 @@ class Fire(nn.Module):
 
         if trec[1]:
             self.expand_1x1 = nn.Sequential(
-                Conv2d_TREC(squzee_channel, int(out_channel / 2), 1, params_L[1], params_H[1], idx+1),
+                Conv2d_TREC(squzee_channel, int(out_channel / 2),
+                            1, params_L[1], params_H[1], idx+1),
                 nn.BatchNorm2d(int(out_channel / 2)),
                 nn.ReLU(inplace=True)
             )
@@ -49,7 +47,8 @@ class Fire(nn.Module):
 
         if trec[2]:
             self.expand_3x3 = nn.Sequential(
-                Conv2d_TREC(squzee_channel, int(out_channel / 2), 3, params_L[2], params_H[2], idx+2, padding=1),
+                Conv2d_TREC(squzee_channel, int(out_channel / 2), 3,
+                            params_L[2], params_H[2], idx+2, padding=1),
                 nn.BatchNorm2d(int(out_channel / 2)),
                 nn.ReLU(inplace=True)
             )
@@ -59,7 +58,7 @@ class Fire(nn.Module):
                 nn.BatchNorm2d(int(out_channel / 2)),
                 nn.ReLU(inplace=True)
             )
-    
+
     def forward(self, x):
         x = self.squeeze(x)
         x = torch.cat([
@@ -72,14 +71,15 @@ class Fire(nn.Module):
 class SqueezeNet_TREC(nn.Module):
     def __init__(self, params_L, params_H, trec=[0]*(8*3+2), class_num=10):
         super().__init__()
-        cfg = [[96, 128, 16], [128, 128, 16], [128, 256, 32], [256, 256, 32], [256, 384, 48], [384, 384, 48], [384, 512, 64], [512, 512, 64], [512, class_num, 1]]
+        cfg = [[96, 128, 16], [128, 128, 16], [128, 256, 32], [256, 256, 32], [
+            256, 384, 48], [384, 384, 48], [384, 512, 64], [512, 512, 64], [512, class_num, 1]]
         if trec[0]:
             self.stem = nn.Sequential(
-            Conv2d_TREC(3, 96, 3, params_L[0], params_H[0], 0, padding=1),
-            nn.BatchNorm2d(96),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2)
-        )
+                Conv2d_TREC(3, 96, 3, params_L[0], params_H[0], 0, padding=1),
+                nn.BatchNorm2d(96),
+                nn.ReLU(inplace=True),
+                nn.MaxPool2d(2, 2)
+            )
         else:
             self.stem = nn.Sequential(
                 nn.Conv2d(3, 96, 3, padding=1),
@@ -87,22 +87,24 @@ class SqueezeNet_TREC(nn.Module):
                 nn.ReLU(inplace=True),
                 nn.MaxPool2d(2, 2)
             )
-            
+
         self.Fires = nn.ModuleList()
         for i in range(8):
             if 1 in trec[i*3+1: i*3+4]:
-                self.Fires.append(Fire(cfg[i][0], cfg[i][1], cfg[i][2], params_L[i*3+1 : i*3+4], params_H[i*3+1 : i*3+4], trec=trec[i*3+1: i*3+4], idx=i*3+1))
+                self.Fires.append(Fire(cfg[i][0], cfg[i][1], cfg[i][2], params_L[i*3+1: i*3+4],
+                                  params_H[i*3+1: i*3+4], trec=trec[i*3+1: i*3+4], idx=i*3+1))
             else:
                 self.Fires.append(Fire(cfg[i][0], cfg[i][1], cfg[i][2]))
 
         if trec[-1]:
-            self.conv10 = Conv2d_TREC(512, class_num, 1, params_L[-1], params_H[-1], 25)
+            self.conv10 = Conv2d_TREC(
+                512, class_num, 1, params_L[-1], params_H[-1], 25)
         else:
             self.conv10 = nn.Conv2d(512, class_num, 1)
 
         self.avg = nn.AdaptiveAvgPool2d(1)
         self.maxpool = nn.MaxPool2d(2, 2)
-            
+
     def forward(self, x):
         x = self.stem(x)
         f2 = self.Fires[0](x)

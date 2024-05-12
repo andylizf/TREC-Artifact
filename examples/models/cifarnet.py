@@ -1,12 +1,7 @@
 """Contains a variant of the CIFAR-10 model definition."""
 
-import sys
-sys.path.append("../")
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from conv_layer import Conv2d_TREC
-from timeit import default_timer as timer
 
 
 class CifarNet_TREC(nn.Module):
@@ -43,4 +38,3 @@ class CifarNet_TREC(nn.Module):
         x = self.relu4(self.dropout4(self.fc4(x)))
         x = self.fc5(x)
         return x
-

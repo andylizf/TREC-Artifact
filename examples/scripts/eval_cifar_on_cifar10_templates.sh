@@ -1,9 +1,9 @@
 #!/bin/bash
 
-MODEL_PATH=examples/pre_trained_models/cifar.pt
+MODEL_PATH=pre_trained_models/cifar.pt
 DATASET_DIR=data
 
-python -m examples.eval_model \
+python eval_model.py \
 --model_path=${MODEL_PATH} \
 --dataset_path=${DATASET_DIR} \
 --model_name=CifarNet \
@@ -15,7 +15,7 @@ python -m examples.eval_model \
 
 echo "===================="
 
-python -m examples.eval_model \
+python eval_model.py \
 --model_path=${MODEL_PATH} \
 --dataset_path=${DATASET_DIR} \
 --model_name=CifarNet \

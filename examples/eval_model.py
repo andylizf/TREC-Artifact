@@ -8,8 +8,7 @@ import torch
 import torch.utils.data
 import torchvision
 import torchvision.transforms as transforms
-
-from . import utils
+import utils
 
 parser = argparse.ArgumentParser("Evaluating a model")
 parser.add_argument('--model_path', type=str,
@@ -32,6 +31,8 @@ parser.add_argument('--bp_L', type=str, default=[1]*4, action=utils.SplitArgs,
 parser.add_argument('--bp_H', type=str, default=[1]*4, action=utils.SplitArgs,
                     help='H of each conv layer')
 parser.add_argument('--gpu', type=int, default=0, help='gpu device id')
+parser.add_argument('-v', '--verbose', action='store_true',
+                    help='verbose mode')
 args = parser.parse_args()
 
 
@@ -64,11 +65,12 @@ def test(net, testset, testloader):
 
             outputs = net(images).cpu()
 
-            torch.cuda.synchronize()
-            time_end = timer()
-            print(f'Inference time (ms): {1000*(time_end - time_start)}')
-            print(f'Sum. Inference time (ms): {1000*(time_end - start)}')
-            print(f'Batch {i+1}/{len(testloader)}')
+            if args.verbose:
+                torch.cuda.synchronize()
+                time_end = timer()
+                print(f'Inference time (ms): {1000*(time_end - time_start)}')
+                print(f'Sum. Inference time (ms): {1000*(time_end - start)}')
+                print(f'Batch {i+1}/{len(testloader)}')
 
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
@@ -93,7 +95,7 @@ def main():
 
     fallback_trad_conv = not any(args.trec)
     if fallback_trad_conv:
-        net.load_state_dict(torch.load(args.model_path), strict=False)
+        net.load_state_dict(torch.load(f=args.model_path), strict=False)
     else:
         net.load_state_dict(torch.load(args.model_path))
 

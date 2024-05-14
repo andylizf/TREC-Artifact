@@ -2,30 +2,36 @@ import collections.abc
 from itertools import repeat
 
 import torch
-import trec as _C
-from torch import nn
+import torch.nn as nn
 
-print_rc = False
+from ._C import (conv_deep_reuse_backward,  # type: ignore
+                 conv_deep_reuse_forward)
+
+__all__ = ["Conv2d_TREC"]
 
 
-def _ntuple(n):
+def _ntuple(n, name="parse"):
+    # Modified from torch.nn.modules.utils
+
     def parse(x) -> tuple:
         if isinstance(x, collections.abc.Iterable):
             return tuple(x)
         return tuple(repeat(x, n))
+
+    parse.__name__ = name
     return parse
 
 
-_pair = _ntuple(2)
+_pair = _ntuple(2, "_pair")
 
 
 class Conv2d_TREC_Function(torch.autograd.Function):
     @staticmethod
     def forward(ctx, inputs, weights, bias, random_vectors, stride, padding,
                 param_L, param_H, is_training, layer, sigma, alpha, do_bias=True):
-        outputs = _C.conv_deep_reuse_forward(inputs, weights, bias, random_vectors,  # type: ignore
-                                             padding[0], padding[1], stride[0], stride[1],
-                                             param_L, param_H, do_bias, is_training, print_rc)
+        outputs = conv_deep_reuse_forward(inputs, weights, bias, random_vectors,
+                                          padding[0], padding[1], stride[0], stride[1],
+                                          param_L, param_H, do_bias, is_training)
 
         if is_training:
             _, inputCentroids, vector_index, vector_ids, buckets_count, buckets_index, buckets_index_inv, input_row = outputs
@@ -50,13 +56,13 @@ class Conv2d_TREC_Function(torch.autograd.Function):
         input_row, inputCentroids, vector_index, vector_ids, buckets_count, buckets_index, buckets_index_inv, random_vectors, weights = ctx.saved_tensors
         stride_height, stride_width = ctx.stride
         padding_height, padding_width = ctx.padding
-        grads = _C.conv_deep_reuse_backward(input_row, inputCentroids, weights,  # type: ignore
-                                            gradOutput, vector_index, vector_ids, buckets_count,
-                                            buckets_index, buckets_index_inv, random_vectors,
-                                            ctx.input_height, ctx.input_width,
-                                            padding_height, padding_width,
-                                            stride_height, stride_width,
-                                            ctx.H, ctx.alpha, ctx.sigma, ctx.do_bias)
+        grads = conv_deep_reuse_backward(input_row, inputCentroids, weights,
+                                         gradOutput, vector_index, vector_ids, buckets_count,
+                                         buckets_index, buckets_index_inv, random_vectors,
+                                         ctx.input_height, ctx.input_width,
+                                         padding_height, padding_width,
+                                         stride_height, stride_width,
+                                         ctx.H, ctx.alpha, ctx.sigma, ctx.do_bias)
 
         if ctx.do_bias:
             gradInput, gradWeight, gradBias, gradHash2 = grads

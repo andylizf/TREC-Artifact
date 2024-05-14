@@ -1,7 +1,8 @@
 """Contains a variant of the CIFAR-10 model definition."""
 
 import torch.nn as nn
-from conv_layer import Conv2d_TREC
+
+from trec.conv_layer import Conv2d_TREC
 
 
 class CifarNet_TREC(nn.Module):

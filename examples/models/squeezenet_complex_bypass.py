@@ -8,7 +8,8 @@ As described in https://arxiv.org/pdf/1602.07360.pdf?ref=https://githubhelp.com.
 """
 import torch
 import torch.nn as nn
-from conv_layer import Conv2d_TREC
+
+from trec.conv_layer import Conv2d_TREC
 
 
 class Fire(nn.Module):

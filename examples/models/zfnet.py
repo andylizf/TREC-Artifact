@@ -1,6 +1,7 @@
 
 import torch.nn as nn
-from conv_layer import Conv2d_TREC
+
+from trec.conv_layer import Conv2d_TREC
 
 
 class ZFNet(nn.Module):

@@ -1,9 +1,9 @@
 #!/bin/bash
 
-MODEL_PATH=examples/pre_trained_models/squeeze_complex_bypass.pt
+MODEL_PATH=pre_trained_models/squeeze_complex_bypass.pt
 DATASET_DIR=data
 
-python ../eval_model.py \
+python eval_model.py \
 --model_path=${MODEL_PATH} \
 --dataset_path=${DATASET_DIR} \
 --model_name=Squeeze_complex_bypass \
@@ -18,7 +18,7 @@ python ../eval_model.py \
 
 echo "==============================="
 
-python ../eval_model.py \
+python eval_model.py \
 --model_path=${MODEL_PATH} \
 --dataset_path=${DATASET_DIR} \
 --model_name=Squeeze_complex_bypass \

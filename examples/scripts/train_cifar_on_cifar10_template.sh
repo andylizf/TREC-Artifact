@@ -1,9 +1,9 @@
 #!/bin/bash
 
-TRAIN_DIR=examples/EXP
+TRAIN_DIR=EXP
 DATASET_DIR=data
 
-python ../train_model.py \
+python train_model.py \
 --checkpoint_path=${TRAIN_DIR} \
 --dataset_path=${DATASET_DIR} \
 --model_name=Cifarnet \

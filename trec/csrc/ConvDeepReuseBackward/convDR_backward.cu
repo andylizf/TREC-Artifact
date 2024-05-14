@@ -7,18 +7,9 @@
 #include <cstdint>
 #include <driver_types.h>
 
+#include "../utils.h"
 #include "convDR_backward.h"
 #include "convDR_backward_kernel.cuh"
-
-#define CHECK_CUDA(x) TORCH_CHECK(x.is_cuda(), #x " must be a CUDA tensor")
-#define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
-#define CHECK_INPUT(x) \
-    CHECK_CUDA(x);     \
-    CHECK_CONTIGUOUS(x)
-[[__gnu__::__always_inline__]] inline void CHECK_SHAPE(const at::Tensor& tensor, const at::IntArrayRef shape)
-{
-    TORCH_CHECK(tensor.sizes() == shape, "Expected shape ", shape, " but got ", tensor.sizes());
-}
 
 struct BackwardOutput {
     at::Tensor gradInput;
@@ -46,8 +37,8 @@ private:
     int64_t stride_height;
     int64_t stride_width;
     int64_t param_H;
-    float alpha;
-    float sigma;
+    double alpha;
+    double sigma;
     bool do_bias;
 
     int64_t n_matrices;
@@ -150,8 +141,8 @@ public:
         const int64_t stride_height,
         const int64_t stride_width,
         const int64_t param_H,
-        const float alpha,
-        const float sigma,
+        const double alpha,
+        const double sigma,
         const bool do_bias)
         : input_row(input_row)
         , inputCentroids(inputCentroids)
@@ -248,8 +239,8 @@ std::vector<at::Tensor> conv_deep_reuse_backward(
     const int64_t stride_height,
     const int64_t stride_width,
     const int64_t param_H,
-    const float alpha,
-    const float sigma,
+    const double alpha,
+    const double sigma,
     const bool do_bias)
 {
     auto covDeepReuseBackward = CovDeepReuseBackward {

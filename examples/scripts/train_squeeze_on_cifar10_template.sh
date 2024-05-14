@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TRAIN_DIR=examples/EXP
+TRAIN_DIR=EXP
 DATASET_DIR=data
 
 

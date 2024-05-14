@@ -15,12 +15,11 @@ import torch.optim as optim
 import torch.utils.data
 import torchvision
 import torchvision.transforms as transforms
-
-from . import utils
+import utils
 
 parser = argparse.ArgumentParser("Train from scratch.")
 parser.add_argument('--checkpoint_path', type=str,
-                    default='examples/EXP', help='checkpoint and logging directory')
+                    default='EXP', help='checkpoint and logging directory')
 parser.add_argument('--dataset_path', type=str,
                     default='data', help='dataset directory')
 parser.add_argument('--model_name', type=str,

@@ -237,7 +237,7 @@ public:
 
         at::Tensor gradIndex = input_row.bmm(gradInput_centroids.transpose(1, 2));
         at::Tensor input_matrix = input_row.reshape({ n_matrices * num_rows, param_L });
-        at::Tensor hash_bits = 1 / (1 + exp(-1 * alpha * (input_matrix.mm(random_vectors) - 0.1 / pow(2, param_H))));
+        at::Tensor hash_bits = 1 / (1 + exp(-alpha * (input_matrix.mm(random_vectors) - 0.1 / (1ll << param_H))));
 
         TIMER_LAP("gradIndex");
 

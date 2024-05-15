@@ -37,9 +37,9 @@ inline int GET_BLOCKS(const int N)
 
 template <typename scalar_t>
 __global__ void get_gradOutputCentroids_add_cuda_kernel(
-    const int* vector_index,
-    const scalar_t* gradOutput_mat, // {batch_size * outputHeight * outputWidth, nOutputPlane}
-    scalar_t* gradOutput_centroids, // {n_matrices, max_buckets, nOutputPlane}
+    const int* __restrict__ vector_index,
+    const scalar_t* __restrict__ gradOutput_mat, // {batch_size * outputHeight * outputWidth, nOutputPlane}
+    scalar_t* __restrict__ gradOutput_centroids, // {n_matrices, max_buckets, nOutputPlane}
     const int64_t max_buckets,
     const int64_t n_output_plane,
     const int64_t num_rows, // batch_size * outputHeight * outputWidth
@@ -52,8 +52,8 @@ __global__ void get_gradOutputCentroids_add_cuda_kernel(
         int64_t vec_id = global_id % num_rows;
         int64_t buck_offset = matrix_id * max_buckets + vect_index;
 
-        scalar_t* buck_start = gradOutput_centroids + buck_offset * n_output_plane;
-        const scalar_t* vect_start = gradOutput_mat + vec_id * n_output_plane;
+        scalar_t* __restrict__ buck_start = gradOutput_centroids + buck_offset * n_output_plane;
+        const scalar_t* __restrict__ vect_start = gradOutput_mat + vec_id * n_output_plane;
         for (int i = 0; i < n_output_plane; i++) {
             atomicAdd(buck_start + i, vect_start[i]);
         }
@@ -90,8 +90,8 @@ void get_gradOutputCentroids_add_cuda(
 
 template <typename scalar_t>
 __global__ void get_gradOutputCentroids_div_cuda_kernel(
-    scalar_t* gradOutput_centroids,
-    const int* buckets_count,
+    scalar_t* __restrict__ gradOutput_centroids,
+    const int* __restrict__ buckets_count,
     const int64_t num_buckets, // n_matrices * max_buckets
     const int64_t n_output_plane)
 {
@@ -127,9 +127,9 @@ void get_gradOutputCentroids_div_cuda(
 
 template <typename scalar_t>
 __global__ void reconstruct_gradInputRows_cuda_kernel(
-    const int* vector_index,
-    const scalar_t* gradInput_centroids,
-    scalar_t* gradInput_rows,
+    const int* __restrict__ vector_index,
+    const scalar_t* __restrict__ gradInput_centroids,
+    scalar_t* __restrict__ gradInput_rows,
     const int64_t max_buckets,
     const int64_t param_L,
     const int64_t num_rows,
@@ -142,8 +142,8 @@ __global__ void reconstruct_gradInputRows_cuda_kernel(
         int64_t matrix_offset = global_id % num_rows;
         int64_t matrix_id = global_id / num_rows;
 
-        scalar_t* row_start = gradInput_rows + (matrix_offset * n_matrices + matrix_id) * param_L;
-        const scalar_t* buck_start = gradInput_centroids + (matrix_id * max_buckets + vect_index) * param_L;
+        scalar_t* __restrict__ row_start = gradInput_rows + (matrix_offset * n_matrices + matrix_id) * param_L;
+        const scalar_t* __restrict__ buck_start = gradInput_centroids + (matrix_id * max_buckets + vect_index) * param_L;
 
         for (int i = 0; i < param_L; i++) {
             row_start[i] = buck_start[i];
@@ -180,7 +180,7 @@ void reconstruct_gradInputRows_cuda(
 template <typename scalar_t>
 __global__ void row2im_batch_cuda_kernel(
     const int64_t n,
-    const scalar_t* data_row,
+    const scalar_t* __restrict__ data_row,
     // const int64_t batch_size,
     const int64_t channels, // nInputPlane
     const int64_t height, // input_height
@@ -193,7 +193,7 @@ __global__ void row2im_batch_cuda_kernel(
     const int64_t stride_width,
     const int64_t height_row, // output_height
     const int64_t width_row, // output_width
-    scalar_t* data_im)
+    scalar_t* __restrict__ data_im)
 {
 
     CUDA_1D_KERNEL_LOOP(index, n)
@@ -276,8 +276,8 @@ void row2im_batch_cuda(
 template <typename scalar_t>
 __global__ void get_Power_kernel(
     const int64_t n,
-    const int* buckets_index,
-    scalar_t* power,
+    const int* __restrict__ buckets_index,
+    scalar_t* __restrict__ power,
     const int64_t max_buckets,
     const int64_t total_buckets,
     const int64_t H)
@@ -290,7 +290,7 @@ __global__ void get_Power_kernel(
         if (bucket_id < 0)
             return;
         for (int64_t i = 0; i < H; i++) {
-            power[matrix_id * max_buckets * H + bucket_id * H + i] = pow(2, H - 1 - i) / (bucket + 1.0);
+            power[matrix_id * max_buckets * H + bucket_id * H + i] = (1 << (H - 1 - i)) / (bucket + 1.0);
         }
     }
 }

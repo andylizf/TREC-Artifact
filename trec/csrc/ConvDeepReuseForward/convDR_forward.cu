@@ -115,7 +115,7 @@ public:
         TIMER_LAP("im2row_DRbatch_cuda");
 
         at::Tensor vector_ids = at::zeros({ n_matrices, num_rows }, inputs.options().dtype(ID_DATATYPE_AT));
-        int64_t total_buckets = std::pow(2, param_H); //
+        int64_t total_buckets = 1ll << param_H; //
         at::Tensor buckets_count = at::zeros({ n_matrices, total_buckets }, inputs.options().dtype(at::kInt));
         at::Tensor buckets_centroids = at::zeros({ n_matrices, total_buckets, param_L }, inputs.options());
 

@@ -319,3 +319,67 @@ void get_Power(
     }));
     MY_CUDA_CHECK(cudaGetLastError());
 }
+
+template <typename scalar_t>
+__global__ void get_gradHashValue_cuda_kernel(
+    const int* __restrict__ vector_ids,
+    const int* __restrict__ buckets_index_inv,
+    const scalar_t* __restrict__ gradIndex,
+    const int* __restrict__ buckets_count,
+    scalar_t* __restrict__ grad_Hash_value,
+    int n_matrices,
+    int num_rows,
+    int max_buckets,
+    double sigma)
+{
+    CUDA_1D_KERNEL_LOOP(index, n_matrices * num_rows * max_buckets)
+    {
+        uint32_t bucket_id = index % max_buckets;
+        index = index / max_buckets;
+        uint32_t row_id = index % num_rows;
+        uint32_t matrix_id = index / num_rows;
+
+        uint32_t vector_id = vector_ids[matrix_id * num_rows + row_id] + 1;
+        uint32_t bucket_index = buckets_index_inv[matrix_id * max_buckets + bucket_id] + 1;
+        scalar_t grad_index = gradIndex[index];
+        uint32_t bucket_count = buckets_count[matrix_id * max_buckets + bucket_id];
+
+        scalar_t grad_Hash_value_temp = static_cast<scalar_t>(vector_id) / static_cast<scalar_t>(bucket_index) - 1;
+        scalar_t neg_sigma_sq = -sigma * sigma;
+
+        scalar_t grad_Hash_val = grad_Hash_value_temp / neg_sigma_sq;
+        grad_Hash_val *= __expf(grad_Hash_value_temp * grad_Hash_val / 2);
+        grad_Hash_val *= grad_index;
+        grad_Hash_val /= bucket_count;
+
+        grad_Hash_value[index] = __isnanf(grad_Hash_val) ? 0 : grad_Hash_val;
+    }
+}
+
+void get_gradHashValue_cuda(
+    cudaStream_t& stream,
+    const at::Tensor& vector_ids,
+    const at::Tensor& buckets_index_inv,
+    const at::Tensor& gradIndex,
+    const at::Tensor& buckets_count,
+    at::Tensor& grad_Hash_value,
+    int n_matrices,
+    int num_rows,
+    int max_buckets,
+    double sigma)
+{
+    AT_DISPATCH_FLOATING_TYPES(gradIndex.scalar_type(), "get_gradHashValue", ([&] {
+        get_gradHashValue_cuda_kernel<scalar_t>
+            <<<GET_BLOCKS(num_rows * n_matrices * max_buckets), CUDA_NUM_THREADS, 0, stream>>>(
+                vector_ids.data_ptr<int>(),
+                buckets_index_inv.data_ptr<int>(),
+                gradIndex.data_ptr<scalar_t>(),
+                buckets_count.data_ptr<int>(),
+                grad_Hash_value.data_ptr<scalar_t>(),
+                n_matrices,
+                num_rows,
+                max_buckets,
+                sigma);
+    }));
+    MY_CUDA_CHECK(cudaGetLastError());
+}

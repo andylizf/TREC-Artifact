@@ -8,6 +8,7 @@
 #include <driver_types.h>
 
 #include "../utils.h"
+#include "ATen/core/TensorBody.h"
 #include "convDR_backward.h"
 #include "convDR_backward_kernel.cuh"
 
@@ -95,18 +96,29 @@ private:
         const at::Tensor& hash_bits,
         const at::Tensor& gradIndex)
     {
-        at::Tensor grad_Hash_value = (vector_ids.unsqueeze(2).repeat({ 1, 1, max_buckets }) + 1).to(gradIndex.options()) / (buckets_index_inv.unsqueeze(1).repeat({ 1, num_rows, 1 }) + 1).to(gradIndex.options()) - 1;
-        grad_Hash_value = -1 * grad_Hash_value / (sigma * sigma) * exp(-1 * grad_Hash_value * grad_Hash_value / (2 * sigma * sigma)) * gradIndex / buckets_count.unsqueeze(1).repeat({ 1, num_rows, 1 }).to(gradIndex.options());
-        at::Tensor power = at::zeros({ n_matrices, max_buckets, param_H }, gradIndex.options());
-        at::Tensor zero = at::zeros({ n_matrices, num_rows, max_buckets }, gradIndex.options());
-        grad_Hash_value = at::where(grad_Hash_value.isnan(), zero, grad_Hash_value);
+        double TIMER_START;
 
+        auto options = gradIndex.options();
+        at::Tensor grad_Hash_value = torch::zeros({ n_matrices, num_rows, max_buckets }, options);
+        get_gradHashValue_cuda(stream, vector_ids, buckets_index_inv, gradIndex, buckets_count, grad_Hash_value, n_matrices, num_rows, max_buckets, sigma);
+
+        TIMER_LAP("grad_Hash_value");
+
+        at::Tensor power = at::zeros({ n_matrices, max_buckets, param_H }, options);
         get_Power(stream, buckets_index, power, max_buckets, param_H);
-        at::Tensor gradHash = grad_Hash_value.bmm(power).reshape({ num_rows * n_matrices, param_H });
 
+        TIMER_LAP("power");
+
+        at::Tensor gradHash = grad_Hash_value.bmm(power).reshape({ num_rows * n_matrices, param_H });
         gradHash = (alpha * hash_bits * (1 - hash_bits)) * gradHash;
 
-        return input_matrix.transpose(0, 1).mm(gradHash);
+        TIMER_LAP("gradHash");
+
+        auto res = input_matrix.transpose(0, 1).mm(gradHash);
+
+        TIMER_LAP("gradHash_mm");
+
+        return res;
     }
 
     at::Tensor get_gradOutputSum(cudaStream_t& stream)

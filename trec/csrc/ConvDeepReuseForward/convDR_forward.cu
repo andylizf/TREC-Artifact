@@ -142,11 +142,14 @@ public:
         TIMER_LAP("get_centroids_add_cuda");
 
         at::Tensor buckets_index = at::zeros({ n_matrices, total_buckets }, inputs.options().dtype(at::kInt));
-        at::Tensor buckets_stats = at::zeros({ 2 }, inputs.options().dtype(at::kInt));
 
-        TIMER_LAP("init buckets_index, buckets_stats");
-
+#ifndef PRINT_STATS
+        at::Tensor buckets_stats = at::zeros(1, inputs.options().dtype(at::kInt));
         index_bucket_cuda(stream, buckets_count, buckets_index, buckets_stats);
+#else
+        at::Tensor buckets_stats = at::zeros({ 2 }, inputs.options().dtype(at::kInt));
+        index_bucket_cuda_with_stats(stream, buckets_count, buckets_index, buckets_stats);
+#endif
         // * buckets_index: the uniform index of each bucket (without empty buckets)
         // ! but only the index in its own matrix
         // * total_buckets: the total number of buckets
@@ -161,9 +164,17 @@ public:
         // * the uniform bucket index of each vector (without empty buckets)
         TIMER_LAP("get_vector_index_cuda");
 
+#ifndef PRINT_STATS
+        int64_t max_buckets = buckets_stats.item<int64_t>();
+#else
         buckets_stats = buckets_stats.cpu();
         auto buckets_stats_ptr = buckets_stats.data_ptr<int>();
         int64_t max_buckets = buckets_stats_ptr[1];
+
+        int64_t num_vectors = num_rows * n_matrices;
+        int64_t sum_buckets = buckets_stats_ptr[0];
+        auto remain_ratio = (double)sum_buckets / (double)num_vectors;
+#endif
 
         // TODO: sync max_buckets here
 
@@ -176,10 +187,6 @@ public:
 
         TIMER_LAP("div_remap_centroids_cuda");
 
-        int64_t num_vectors = num_rows * n_matrices;
-        int64_t sum_buckets = buckets_stats_ptr[0];
-        auto remain_ratio = (double)sum_buckets / (double)num_vectors;
-        auto remain_ratio_tensor = at::tensor({ remain_ratio }, inputs.options());
         //! end preprocess
 
         TIMER_LAP("remain_ratio");
@@ -229,8 +236,11 @@ public:
                 input_row.reshape({ n_matrices, num_rows, param_L }) };
         }
         DEBUG_PRINT("forward time: %f\n", timestamp() - t0);
-        return { std::move(reconstructed_output),
-            std::move(remain_ratio_tensor) };
+#ifndef PRINT_STATS
+        return { std::move(reconstructed_output) };
+#else
+        return { std::move(reconstructed_output), at::tensor({ remain_ratio }, inputs.options()) };
+#endif
         // c10::cuda::CUDACachingAllocator::emptyCache();
         // ? Is it necessary to empty the cache?
     }

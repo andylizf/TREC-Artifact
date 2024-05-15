@@ -143,6 +143,33 @@ __global__ void get_centroids_add_cuda_kernel(
     }
 }
 
+#ifndef PRINT_STATS
+// for each submatrix
+__global__ void index_bucket_cuda_kernel(
+    const int64_t n_matrices,
+    const int64_t total_buckets, // 2^H
+    const int* __restrict__ buckets_count, // # of vectors of each bucket
+    int* __restrict__ buckets_index,
+    // int* __restrict__ buckets_num,             // # of buckets of each submatrix
+    int* __restrict__ max_buckets)
+{ // sum and max of buckets_num
+
+    CUDA_1D_KERNEL_LOOP(index, n_matrices)
+    {
+        int bucket_num = 0;
+#pragma unroll
+        for (int i = 0; i < total_buckets; i++) {
+            int64_t bucket_id = index * total_buckets + i;
+            if (buckets_count[bucket_id] > 0) {
+                buckets_index[bucket_id] = bucket_num++;
+            } else {
+                buckets_index[bucket_id] = -1;
+            }
+        }
+        atomicMax(max_buckets, bucket_num);
+    }
+}
+#else
 // for each submatrix
 __global__ void index_bucket_cuda_kernel(
     const int64_t n_matrices,
@@ -170,6 +197,7 @@ __global__ void index_bucket_cuda_kernel(
         atomicMax(&buckets_stats[1], bucket_num);
     }
 }
+#endif
 
 // for each vector
 __global__ void get_vector_index_cuda_kernel(

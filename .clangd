@@ -5,3 +5,4 @@ CompileFlags:
     - --expt-relaxed-constexpr
     - --compiler-options
     - -gencode*
+    - --use_fast_math

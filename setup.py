@@ -3,8 +3,7 @@ import os
 
 import torch
 from setuptools import find_packages, setup
-from torch.utils.cpp_extension import (
-    CUDA_HOME, BuildExtension, CUDAExtension)
+from torch.utils.cpp_extension import CUDA_HOME, BuildExtension, CUDAExtension
 
 LIBRARY_NAME = "trec"
 
@@ -34,6 +33,7 @@ def get_extensions():
             "-D__CUDA_NO_HALF_CONVERSIONS__",
             "-D__CUDA_NO_HALF2_OPERATORS__",
             "--expt-relaxed-constexpr",
+            "--use_fast_math",  # ! Assessments needed
         ],
     }
     if DEBUG_MODE:

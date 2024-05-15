@@ -204,18 +204,35 @@ public:
     {
         cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
+        double t0 = timestamp();
+        double TIMER_START;
+
         at::Tensor gradOutput_centroids = get_gradOutputSum(stream);
+
+        TIMER_LAP("gradOutput_centroids");
 
         const auto& [gradWeights, gradBias] = get_gradParameters(stream, gradOutput_centroids);
 
+        TIMER_LAP("gradParameters");
+
         get_gradOutputCentroids_div_cuda(stream, gradOutput_centroids, buckets_count); // ? Not before get_gradParameters?
 
+        TIMER_LAP("gradOutputCentroids_div");
+
         const auto& [gradInput, gradInput_centroids] = get_gradInput(stream, gradOutput_centroids);
+
+        TIMER_LAP("gradInput");
 
         at::Tensor gradIndex = input_row.bmm(gradInput_centroids.transpose(1, 2));
         at::Tensor input_matrix = input_row.reshape({ n_matrices * num_rows, param_L });
         at::Tensor hash_bits = 1 / (1 + exp(-1 * alpha * (input_matrix.mm(random_vectors) - 0.1 / pow(2, param_H))));
+
+        TIMER_LAP("gradIndex");
+
         const auto& gradHash = get_gradHash(stream, input_matrix, hash_bits, gradIndex);
+
+        TIMER_LAP("gradHash");
+        DEBUG_PRINT("backward time: %f\n", timestamp() - t0);
 
         return { std::move(gradInput), std::move(gradWeights), std::move(gradHash), std::move(gradBias) };
     }

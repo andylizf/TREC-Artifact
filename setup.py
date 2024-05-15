@@ -20,15 +20,15 @@ def get_extensions():
     extra_compile_args = {
         "cxx": [
             "-fopenmp",
-            "-O3" if not DEBUG_MODE else "-Og",
+            "-O3",
             "-DNDEBUG" if not DEBUG_MODE else "-g",
             "-fdiagnostics-color=always",
             "-Wall",
             "-Wextra",
         ],
         "nvcc": [
-            "-O3" if not DEBUG_MODE else "-Og",
-            "-DNDEBUG" if not DEBUG_MODE else "-g",
+            "-O3",
+            "-DNDEBUG" if not DEBUG_MODE else "-G",
             "-DCUDA_HAS_FP16=1",
             "-D__CUDA_NO_HALF_OPERATORS__",
             "-D__CUDA_NO_HALF_CONVERSIONS__",

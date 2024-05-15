@@ -28,6 +28,7 @@ template <typename String>
 inline void TIMER_LAP_impl(String str, double& TIMER_t)
 {
 #ifndef NDEBUG
+    torch::cuda::synchronize();
     cudaDeviceSynchronize();
     printf("%s: %f\n", str, timestamp() - TIMER_t);
     TIMER_t = timestamp();

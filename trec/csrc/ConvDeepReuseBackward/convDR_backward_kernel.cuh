@@ -57,9 +57,9 @@ __global__ void get_gradOutputCentroids_add_cuda_kernel(
         for (int i = 0; i < n_output_plane; i++) {
             atomicAdd(buck_start + i, vect_start[i]);
         }
-        // for all matrix_id in n_matrices:
-        // for all i in n_output_plane:
-        //  gradOutput_centroids[matrix_id][vect_index[matrix_id][vec_id]][i] += gradOutput_mat[vec_id][i]
+        // for matrix_id, vec_id in n_matrices * num_rows:
+        //   for all i in n_output_plane:
+        //     gradOutput_centroids[matrix_id][vect_index[matrix_id][vec_id]][i] += gradOutput_mat[vec_id][i]
     }
 }
 
@@ -88,6 +88,8 @@ void get_gradOutputCentroids_add_cuda(
     MY_CUDA_CHECK(cudaGetLastError());
 }
 
+// for bucket_id, n_output_plane in num_buckets * n_output_plane:
+//   gradOutput_centroids[bucket_id][n_output_plane] /= buckets_count[bucket_id]
 template <typename scalar_t>
 __global__ void get_gradOutputCentroids_div_cuda_kernel(
     scalar_t* __restrict__ gradOutput_centroids,
@@ -125,6 +127,11 @@ void get_gradOutputCentroids_div_cuda(
     MY_CUDA_CHECK(cudaGetLastError());
 }
 
+// for matrix_id, vec_id in n_matrices * num_rows:
+//   for i in n_output_plane:
+//     vect_index = vector_index[matrix_id][vec_id]
+//     gradInput_rows[vec_id][matrix_id][i] = gradOutput_centroids[matrix_id][vect_index][i]
+// TODO: why not let L be part of thread index?
 template <typename scalar_t>
 __global__ void reconstruct_gradInputRows_cuda_kernel(
     const int* __restrict__ vector_index,
@@ -273,6 +280,11 @@ void row2im_batch_cuda(
     MY_CUDA_CHECK(cudaGetLastError());
 }
 
+// for matrix_id, bucket_id in n_matrices * total_buckets:
+//   bucket_index = buckets_index[matrix_id][bucket_id]
+//   if bucket_index >= 0:
+//   for i in H:
+//     power[matrix_id][bucket_index][i] = 2^(H - i - 1) / (bucket_id + 1.0)
 template <typename scalar_t>
 __global__ void get_Power_kernel(
     const int64_t n,

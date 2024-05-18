@@ -58,17 +58,20 @@ private:
         const at::Tensor& gradOutput_centroids // {n_matrices, max_buckets, nOutputPlane}
     ) const
     {
-        at::Tensor inputCentroids_col = inputCentroids.transpose(1, 2).contiguous();
-        CHECK_SHAPE(inputCentroids_col, { n_matrices, param_L, max_buckets });
-
-        at::Tensor gradWeights = inputCentroids_col.bmm(gradOutput_centroids)
-                                     .reshape({ -1, nOutputPlane })
-                                     .transpose(0, 1)
+        at::Tensor gradWeights = torch::einsum("ikj,ikl->lij", { inputCentroids, gradOutput_centroids })
                                      .reshape(weights_sizes);
+        // ? need to contiguous?
+
+        // at::Tensor inputCentroids_col = inputCentroids.transpose(1, 2).contiguous();
+        // CHECK_SHAPE(inputCentroids_col, { n_matrices, param_L, max_buckets });
+
+        // at::Tensor gradWeights = inputCentroids_col.bmm(gradOutput_centroids)
+        //                              .reshape({ -1, nOutputPlane })
+        //                              .transpose(0, 1)
+        //                              .reshape(weights_sizes);
         CHECK_SHAPE(gradWeights, { nOutputPlane, nInputPlane, kernel_height, kernel_width });
 
-        at::Tensor gradBias = do_bias ? gradOutput_centroids[0].sum(0) : at::Tensor();
-        return { gradWeights, gradBias };
+        return { std::move(gradWeights), do_bias ? gradOutput_centroids[0].sum(0) : at::Tensor() };
     }
 
     std::pair<at::Tensor, at::Tensor> get_gradInput(
@@ -77,8 +80,11 @@ private:
     )
     {
         at::Tensor gradInput_rows = at::zeros({ num_rows, n_matrices * param_L }, gradOutput_centroids.options());
-        at::Tensor weights_matrices = weights.reshape({ nOutputPlane, n_matrices, param_L }).transpose(0, 1).contiguous();
-        at::Tensor gradInput_centroids = gradOutput_centroids.bmm(weights_matrices);
+        // at::Tensor weights_matrices = weights.reshape({ nOutputPlane, n_matrices, param_L }).transpose(0, 1).contiguous();
+        // at::Tensor gradInput_centroids = gradOutput_centroids.bmm(weights_matrices);
+        at::Tensor weights_matrices = weights.reshape({ nOutputPlane, n_matrices, param_L });
+        at::Tensor gradInput_centroids = at::einsum("bij,jbk->bik", { gradOutput_centroids, weights_matrices });
+
         reconstruct_gradInputRows_cuda(stream, vector_index, gradInput_centroids, gradInput_rows);
 
         at::Tensor gradInputs = at::zeros({ batch_size, nInputPlane, input_height, input_width },
@@ -92,8 +98,8 @@ private:
 
     at::Tensor get_gradHash(
         cudaStream_t& stream,
-        const at::Tensor& input_matrix,
-        const at::Tensor& hash_bits,
+        const at::Tensor& input_matrix, // [n_matrices * num_rows, param_L]
+        const at::Tensor& hash_bits, // [n_matrices * num_rows, param_H]
         const at::Tensor& gradIndex)
     {
         double TIMER_START;
@@ -110,11 +116,13 @@ private:
         TIMER_LAP("power");
 
         at::Tensor gradHash = grad_Hash_value.bmm(power).reshape({ num_rows * n_matrices, param_H });
-        gradHash = (alpha * hash_bits * (1 - hash_bits)) * gradHash;
+        at::Tensor hash_factor = alpha * hash_bits * (1 - hash_bits);
+        gradHash *= hash_factor; //? may perform on poewr
 
         TIMER_LAP("gradHash");
 
-        auto res = input_matrix.transpose(0, 1).mm(gradHash);
+        auto res = torch::einsum("ji,jk->ik", { input_matrix, gradHash });
+        // auto res = input_matrix.transpose(0, 1).mm(gradHash);
 
         TIMER_LAP("gradHash_mm");
 
@@ -123,6 +131,8 @@ private:
 
     at::Tensor get_gradOutputSum(cudaStream_t& stream)
     {
+        // TODO: no need to reshape gradOutput, directly process in cuda
+        //? or at least contiguous needed
         at::Tensor gradOutput_mat = gradOutput.reshape({ batch_size, nOutputPlane,
                                                            output_height * output_width })
                                         .transpose(1, 2)
@@ -235,7 +245,8 @@ public:
 
         TIMER_LAP("gradInput");
 
-        at::Tensor gradIndex = input_row.bmm(gradInput_centroids.transpose(1, 2));
+        at::Tensor gradIndex = torch::einsum("bij,bkj->bik", { input_row, gradInput_centroids });
+        // at::Tensor gradIndex = input_row.bmm(gradInput_centroids.transpose(1, 2));
         at::Tensor input_matrix = input_row.reshape({ n_matrices * num_rows, param_L });
         at::Tensor hash_bits = 1 / (1 + exp(-alpha * (input_matrix.mm(random_vectors) - 0.1 / (1ll << param_H))));
 

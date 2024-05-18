@@ -123,6 +123,8 @@ def main():
         running_loss = 0.0
         net.train()
 
+        time_start = timer()
+
         '''Train'''
         for i, data in enumerate(trainloader, 0):
             inputs, labels = data
@@ -138,6 +140,11 @@ def main():
                 logging.info('[epoch=%d, batch=%5d] loss: %.3f',
                              epoch, i + 1, running_loss / 100)
                 running_loss = 0.0
+
+        torch.cuda.synchronize()
+        print('Training time (sec): {}'.format(timer() - time_start))
+        print('Epoch %d finished' % epoch)
+
         scheduler.step()
 
         '''Evaluation'''

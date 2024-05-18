@@ -37,7 +37,7 @@ def get_extensions():
         ],
     }
     if DEBUG_MODE:
-        extra_link_args += ["-Og", "-g"]
+        extra_link_args += ["-Og", "-g", "-lto"]
 
     this_dir = os.path.dirname(os.path.curdir)
     extensions_dir = os.path.join(this_dir, LIBRARY_NAME, "csrc")

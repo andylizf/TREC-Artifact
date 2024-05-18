@@ -90,7 +90,7 @@ public:
         TORCH_CHECK(param_H <= 32, "Paramter H must <= 32"); // hash value: int32_t
         TORCH_CHECK(nInputPlane == weights.size(1), "Inconsistent number of input channels and weight channels");
 
-        TORCH_CHECK(row_length % param_L == 0, "Parameter L must be the factor of", row_length);
+        TORCH_CHECK(row_length % param_L == 0, "Parameter L must be the factor of ", row_length);
 
         TORCH_CHECK(param_L == random_vectors.size(0), "Inconsistent parameter L and random vectors");
         TORCH_CHECK(param_H == random_vectors.size(1), "Inconsistent parameter H and random vectors");

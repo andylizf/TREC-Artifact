@@ -13,7 +13,7 @@ def get_extensions():
     if DEBUG_MODE:
         print("Building in debug mode")
 
-    assert (torch.cuda.is_available() and CUDA_HOME is not None)
+    assert torch.cuda.is_available() and CUDA_HOME is not None
 
     extra_link_args = []
     extra_compile_args = {

@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 
 from trec.conv_layer import Conv2d_TREC
+from trec_classic.conv_layer import Conv2d_TREC as Conv2d_TREC_Classic
 
 # |a - b| < atol + rtol * |b|
 atol = 1e-6
@@ -16,7 +17,8 @@ class TestConv2dTREC(unittest.TestCase):
     def setUp(self):
         self.input_tensor = torch.randn(
             1, 3, 64, 64, requires_grad=True).cuda()
-        self.conv_standard = nn.Conv2d(3, 16, 3, stride=1, padding=1).cuda()
+        self.conv_standard = Conv2d_TREC_Classic(
+            3, 16, 3, param_L=9, param_H=8, layer=1, padding=1, stride=1).cuda()
         self.conv_trec = Conv2d_TREC(
             3, 16, 3, param_L=9, param_H=8, layer=1, padding=1, stride=1).cuda()
 
@@ -25,6 +27,10 @@ class TestConv2dTREC(unittest.TestCase):
         if self.conv_standard.bias is not None:
             assert self.conv_trec.bias is not None
             self.conv_trec.bias.data = self.conv_standard.bias.data.clone()
+
+        #! Ensure random_vectors are the same
+        self.conv_trec.random_vectors = torch.nn.Parameter(
+            self.conv_standard.random_vectors.clone())
 
     def test_forward(self):
         # Forward pass
@@ -47,7 +53,7 @@ class TestConv2dTREC(unittest.TestCase):
 
         # Create gradients for each backward pass
         grad_output_standard = torch.randn_like(result_standard).cuda()
-        grad_output_trec = torch.randn_like(result_trec).cuda()
+        grad_output_trec = grad_output_standard.clone()
 
         # Backward pass for standard convolution
         result_standard.backward(grad_output_standard)

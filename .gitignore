@@ -175,6 +175,3 @@ compile_commands.json
 
 # Experiment results
 results/
-
-# VS Code
-.vscode/

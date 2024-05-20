@@ -2,34 +2,32 @@ name: Pytorch Extension
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 permissions:
   contents: read
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-        cache: 'pip' # caching pip dependencies
-        
-    - name: Install dependencies
-      run: |
-        pip3 install torch torchvision torchaudio
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        
-    - name: Build and install PyTorch extension
-      run: |
-        pip install .
-        
-    - name: Test with unittest
-      run: |
-        python -m unittest discover -s . -p 'test_conv2d_trec.py'
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip" # caching pip dependencies
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Build and install PyTorch extension
+        run: |
+          pip install .
+
+      - name: Test with unittest
+        run: |
+          python -m unittest discover -s . -p 'test_conv2d_trec.py'

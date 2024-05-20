@@ -54,7 +54,7 @@ private:
     at::IntArrayRef weights_sizes;
 
     std::pair<at::Tensor, at::Tensor> get_gradParameters(
-        cudaStream_t& stream,
+        [[maybe_unused]] cudaStream_t& stream,
         const at::Tensor& gradOutput_centroids // {n_matrices, max_buckets, nOutputPlane}
     ) const
     {

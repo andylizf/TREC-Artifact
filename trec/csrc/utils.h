@@ -25,7 +25,7 @@ inline double timestamp()
 
 template <typename String>
 [[gnu::always_inline]]
-inline void TIMER_LAP_impl(String str, double& TIMER_t)
+inline void TIMER_LAP_impl([[maybe_unused]] String str, [[maybe_unused]] double& TIMER_t)
 {
 #ifndef NDEBUG
     torch::cuda::synchronize();
@@ -38,7 +38,7 @@ inline void TIMER_LAP_impl(String str, double& TIMER_t)
 
 template <typename... Args>
 [[gnu::always_inline]]
-inline void DEBUG_PRINT(const Args&... args)
+inline void DEBUG_PRINT([[maybe_unused]] const Args&... args)
 {
 #ifndef NDEBUG
     printf(args...);

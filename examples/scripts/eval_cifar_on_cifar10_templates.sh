@@ -11,7 +11,8 @@ python eval_model.py \
 --trec=0,1 \
 --L=5,10 \
 --H=15,10 \
---gpu=0
+--gpu=0 \
+--verbose
 
 echo "===================="
 
@@ -21,4 +22,5 @@ python eval_model.py \
 --model_name=CifarNet \
 --batch_size=100 \
 --trec=0,0 \
---gpu=0
+--gpu=0 \
+--verbose

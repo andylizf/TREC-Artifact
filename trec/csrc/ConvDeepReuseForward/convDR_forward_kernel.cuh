@@ -91,9 +91,47 @@ __global__ void im2row_DRbatch_cuda_kernel(
 
 // forall i in [0, num_vectors)
 //     vector_ids[i] = to_binary(hashed_vectors[i][j] > 0)
-//     buckets_count[matrix_id * total_buckets + vector_ids[i]] += 1
+//     buckets_count[matrix_id][vector_ids[i]] += 1
 template <typename scalar_t>
 __global__ void get_id_count_cuda_kernel(
+    const int64_t num_vectors,
+    const int64_t vector_len,
+    const int64_t num_rows,
+    const int64_t total_buckets,
+    const scalar_t* __restrict__ hashed_vectors,
+    int* __restrict__ buckets_count,
+    ID_DATATYPE* vector_ids)
+{
+    const int matrix_id = blockIdx.x;
+
+    // cache buckets_count[matrix_id] in shared memory
+    __shared__ extern int shared_buckets_count[]; // total_buckets
+    for (int i = threadIdx.x; i < total_buckets; i += blockDim.x) {
+        shared_buckets_count[i] = 0;
+    }
+    __syncthreads();
+
+#pragma unroll 4
+    for (int i = threadIdx.x; i < num_rows; i += blockDim.x) {
+        const int global_id = matrix_id * num_rows + i;
+        const scalar_t* __restrict__ vector_ptr = hashed_vectors + global_id * vector_len;
+        ID_DATATYPE id = 0; // a vector_len bit integer
+#pragma unroll 4
+        for (int j = 0; j < vector_len; j++) {
+            id = (id << 1) | (vector_ptr[j] > 0);
+        }
+        vector_ids[global_id] = id;
+        atomicAdd(shared_buckets_count + id, 1);
+    }
+    __syncthreads();
+
+    for (int i = threadIdx.x; i < total_buckets; i += blockDim.x) {
+        buckets_count[matrix_id * total_buckets + i] = shared_buckets_count[i];
+    }
+}
+
+template <typename scalar_t>
+__global__ void get_id_count_cuda_kernel_old(
     const int64_t num_vectors,
     const int64_t vector_len,
     const int64_t num_rows,
@@ -350,7 +388,6 @@ __global__ void reconstruct_output_cuda_kernel(
     scalar_t* __restrict__ reconstructed_output // [batch_size, n_output_plane, outputHeight, outputWidth]
 )
 {
-
     CUDA_1D_KERNEL_LOOP(index, n)
     {
         int64_t k_out = index % n_output_plane; // plane index
@@ -455,6 +492,7 @@ auto get_id_count_cuda(
     // auto [num_vectors, vector_len] = hashed_vectors.sizes(); // [n_matrices * num_rows, H]
     auto num_vectors { hashed_vectors.size(0) };
     auto vector_len { hashed_vectors.size(1) };
+    auto n_matrices { vector_ids.size(0) };
 
     // auto [n_matrices, num_rows] = buckets_count.sizes();
     auto num_rows { vector_ids.size(1) };
@@ -464,7 +502,7 @@ auto get_id_count_cuda(
     // double t1 = timestamp1();
     AT_DISPATCH_FLOATING_TYPES(hashed_vectors.scalar_type(), "get_id_count_cuda", ([&] {
         get_id_count_cuda_kernel<scalar_t>
-            <<<GET_BLOCKS(num_vectors), CUDA_NUM_THREADS, 0, stream>>>(
+            <<<n_matrices, CUDA_NUM_THREADS, total_buckets * sizeof(ID_DATATYPE), stream>>>(
                 num_vectors,
                 vector_len,
                 num_rows,

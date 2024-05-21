@@ -118,7 +118,10 @@ __global__ void get_id_count_cuda_kernel(
     }
 }
 
-// for each element
+// for matrix_id, vector_idx, vector_offset in num_rows * n_matrices * vect_dim
+//   buckets_sum[matrix_id][vector_ids[matrix_id][vector_idx]][vector_offset] += vectors[matrix_id][vector_idx][vector_offset]
+// blockIdx.x: n_matrices
+// threadIdx.x: num_rows * vect_dim
 template <typename scalar_t>
 __global__ void get_centroids_add_cuda_kernel(
     const ID_DATATYPE* vector_ids,
@@ -130,7 +133,39 @@ __global__ void get_centroids_add_cuda_kernel(
     const int64_t num_rows,
     const int64_t total_buckets)
 {
+    const int matrix_id = blockIdx.x;
 
+    // cache vector_ids[matrix_id] in shared memory
+    __shared__ extern ID_DATATYPE shared_vector_ids[]; // num_rows
+
+    for (int i = threadIdx.x; i < num_rows; i += blockDim.x) {
+        shared_vector_ids[i] = vector_ids[matrix_id * num_rows + i];
+    }
+    __syncthreads();
+
+    for (int i = threadIdx.x; i < num_rows * vect_dim; i += blockDim.x) {
+        const int vector_id = i / vect_dim;
+        const int vector_offset = i % vect_dim;
+
+        int int_id = shared_vector_ids[vector_id];
+        atomicAdd(&buckets_sum[(matrix_id * total_buckets + int_id) * vect_dim + vector_offset],
+            vectors[(matrix_id * num_rows + vector_id) * vect_dim + vector_offset]);
+    }
+}
+
+// for global_id, vector_offset in total_vect * vect_dim
+//   buckets_sum[matrix_id][vector_ids[global_id]][vector_offset] += vectors[global_id][vector_offset]
+template <typename scalar_t>
+__global__ void get_centroids_add_cuda_kernel_old(
+    const ID_DATATYPE* vector_ids,
+    const scalar_t* __restrict__ vectors,
+    scalar_t* __restrict__ buckets_sum, // buckets_centoids
+    // int* __restrict__ buckets_count,
+    const int64_t total_vect, // num_rows * n_matrices
+    const int64_t vect_dim, // H
+    const int64_t num_rows,
+    const int64_t total_buckets)
+{
     CUDA_1D_KERNEL_LOOP(index, total_vect * vect_dim)
     {
         int64_t vect_offset = index % vect_dim;
@@ -154,8 +189,6 @@ __global__ void index_bucket_cuda_kernel(
     int* __restrict__ max_buckets)
 { // sum and max of buckets_num
     int matrix_id = blockIdx.x;
-    if (matrix_id >= n_matrices)
-        return;
 
     // reindex buckets_index
     __shared__ int bucket_num;
@@ -449,15 +482,15 @@ void get_centroids_add_cuda(
     const at::Tensor& vectors, // input_row -- [n_matrices, num_rows]
     at::Tensor& buckets_sum) // buckets_centroids -- [n_matrices, total_buckets, L]
 {
-
     int64_t num_vectors = vectors.size(0);
     int64_t vector_len = vectors.size(1); // L
     int64_t total_buckets = buckets_sum.size(1);
+    int64_t n_matrices = vector_ids.size(0);
     int64_t num_rows = vector_ids.size(1);
 
     AT_DISPATCH_FLOATING_TYPES(vectors.scalar_type(), "get_centroids_add_cuda", ([&] {
         get_centroids_add_cuda_kernel<scalar_t>
-            <<<GET_BLOCKS(num_vectors * vector_len), CUDA_NUM_THREADS, 0, stream>>>(
+            <<<n_matrices, CUDA_NUM_THREADS, num_rows * sizeof(ID_DATATYPE), stream>>>(
                 vector_ids.data_ptr<ID_DATATYPE>(),
                 vectors.data_ptr<scalar_t>(),
                 buckets_sum.data_ptr<scalar_t>(),
@@ -475,11 +508,10 @@ void index_bucket_cuda(
     at::Tensor& buckets_index,
     at::Tensor& buckets_stats)
 {
-
     int64_t n_matrices = buckets_index.size(0);
     int64_t total_buckets = buckets_index.size(1);
 
-    index_bucket_cuda_kernel<<<GET_BLOCKS(n_matrices * total_buckets), CUDA_NUM_THREADS, 0, stream>>>(
+    index_bucket_cuda_kernel<<<n_matrices, CUDA_NUM_THREADS, 0, stream>>>(
         n_matrices,
         total_buckets,
         buckets_count.data_ptr<int>(),

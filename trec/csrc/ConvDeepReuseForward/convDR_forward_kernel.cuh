@@ -144,8 +144,42 @@ __global__ void get_centroids_add_cuda_kernel(
 }
 
 #ifndef PRINT_STATS
-// for each submatrix
+// blockIdx.x: n_matrices
+// threadIdx.x: total_buckets
 __global__ void index_bucket_cuda_kernel(
+    const int64_t n_matrices,
+    const int64_t total_buckets, // 2^H
+    const int* __restrict__ buckets_count, // # of vectors of each bucket
+    int* __restrict__ buckets_index,
+    int* __restrict__ max_buckets)
+{ // sum and max of buckets_num
+    int matrix_id = blockIdx.x;
+    if (matrix_id >= n_matrices)
+        return;
+
+    // reindex buckets_index
+    __shared__ int bucket_num;
+    if (threadIdx.x == 0) {
+        bucket_num = 0;
+    }
+    __syncthreads();
+
+    for (int i = threadIdx.x; i < total_buckets; i += blockDim.x) {
+        int bucket_id = matrix_id * total_buckets + i;
+        if (buckets_count[bucket_id] > 0) {
+            buckets_index[bucket_id] = atomicAdd(&bucket_num, 1);
+        } else {
+            buckets_index[bucket_id] = -1;
+        }
+    }
+
+    if (threadIdx.x % warpSize == 0) {
+        atomicMax(max_buckets, bucket_num);
+    }
+}
+
+// for each submatrix
+__global__ void index_bucket_cuda_kernel2(
     const int64_t n_matrices,
     const int64_t total_buckets, // 2^H
     const int* __restrict__ buckets_count, // # of vectors of each bucket
@@ -445,7 +479,7 @@ void index_bucket_cuda(
     int64_t n_matrices = buckets_index.size(0);
     int64_t total_buckets = buckets_index.size(1);
 
-    index_bucket_cuda_kernel<<<GET_BLOCKS(n_matrices), CUDA_NUM_THREADS, 0, stream>>>(
+    index_bucket_cuda_kernel<<<GET_BLOCKS(n_matrices * total_buckets), CUDA_NUM_THREADS, 0, stream>>>(
         n_matrices,
         total_buckets,
         buckets_count.data_ptr<int>(),

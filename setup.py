@@ -9,9 +9,13 @@ LIBRARY_NAME = "trec"
 EXTENSION_NAME = f"{LIBRARY_NAME}._C"
 EXTENSION_DIR = os.path.join(os.path.dirname(
     os.path.curdir), LIBRARY_NAME, "csrc")
-DEBUG_MODE = os.getenv("DEBUG", "0") == "1"
 INCLUDE_DIRS = [EXTENSION_DIR]
 DEFINE_MACROS = [("WITH_CUDA", None)]
+
+DEBUG_MODE = os.getenv("DEBUG", "0") == "1"
+PROFILE_MODE = os.getenv("PROFILE", "0") == "1"
+RELEASE_MODE = os.getenv("RELEASE", "0") == "1"
+PRINT_FLAGS = os.getenv("PRINT", "0") == "1"
 
 
 class MyBuildExtension(BuildExtension):
@@ -39,11 +43,9 @@ def get_extensions():
 
     extra_compile_args = {
         "cxx": [
-            "-O3",
             "-std=c++20",
         ],
         "nvcc": [
-            "-O3",
             "-std=c++20",
             # CUDA specific
             "-DCUDA_HAS_FP16=1",  # ? not sure if this is needed
@@ -58,9 +60,18 @@ def get_extensions():
     }
     extra_link_args = []
 
-    if DEBUG_MODE:
-        pass
-    else:
+    if RELEASE_MODE:
+        extra_compile_args["cxx"] += ["-O3"]
+        extra_compile_args["nvcc"] += ["-O3"]
+    elif DEBUG_MODE:
+        extra_compile_args["cxx"] += ["-g", "-Og"]
+        extra_compile_args["nvcc"] += ["-g", "-G"]  # suppress device opt
+        extra_link_args += ["-g"]
+    else:  # default to PROFILE_MODE
+        extra_compile_args["cxx"] += ["-O3", "-g", "-pg", "-lineinfo"]
+        extra_compile_args["nvcc"] += ["-O3", "-g", "-pg"]
+
+    if not PRINT_FLAGS:
         extra_compile_args["cxx"] += ["-DNDEBUG"]
         extra_compile_args["nvcc"] += ["-DNDEBUG"]
 

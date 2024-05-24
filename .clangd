@@ -3,6 +3,9 @@ CompileFlags:
     - --generate-dependencies-with-compile
     - --dependency-output
     - --expt-relaxed-constexpr
+    - --expt-extended-lambda
     - --compiler-options
     - -gencode*
     - --use_fast_math
+  Add:
+    - --cuda-gpu-arch=sm_50

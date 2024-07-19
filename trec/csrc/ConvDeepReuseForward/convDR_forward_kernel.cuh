@@ -77,7 +77,7 @@ __global__ void im2row_DRbatch_cuda_kernel(
                 const int matrix_offset = row_offset % vector_dim;
                 const int matrix_id = row_offset / vector_dim;
 
-                data_row[matrix_id][batch_id][h_out][w_out][matrix_offset]
+                data_row[matrix_id][matrix_offset][batch_id][h_out][w_out]
                     = (h >= 0 && w >= 0 && h < input_height && w < input_width)
                     ? data_im[batch_id][channel_in][h][w]
                     : static_cast<scalar_t>(0);

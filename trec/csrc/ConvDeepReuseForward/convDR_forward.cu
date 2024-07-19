@@ -46,7 +46,7 @@ private:
         int64_t num_kernels = num_rows * row_length / kernel_length;
         assert(num_kernels == batch_size * n_input_plane * output_height * output_width);
 
-        output = output.view({ n_matrices, batch_size, output_height, output_width, param_L });
+        output = output.view({ n_matrices, param_L, batch_size, output_height, output_width });
 
         AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "im2row_cuda", ([&] {
             im2row_DRbatch_cuda_kernel<scalar_t>
@@ -275,7 +275,7 @@ public:
 
     auto forward() -> std::vector<Tensor>
     {
-        Tensor input_row = at::zeros({ n_matrices, num_rows, param_L }, inputs.options());
+        Tensor input_row = at::zeros({ n_matrices, param_L, num_rows }, inputs.options());
         Tensor bucket_ids = at::zeros({ n_matrices, num_rows }, inputs.options().dtype(ID_DATATYPE_AT));
         Tensor bucket_counts = at::zeros({ n_matrices, num_buckets }, inputs.options().dtype(at::kInt));
         Tensor bucket_centroids = at::zeros({ n_matrices, num_buckets, vector_dim }, inputs.options());
@@ -286,6 +286,7 @@ public:
 
         im2row_DRbatch_cuda(stream, inputs, input_row);
 
+        input_row = input_row.transpose(1, 2).contiguous();
         Tensor hashed_vectors = at::matmul(input_row, random_vectors);
 
         get_id_count_cuda(stream, hashed_vectors, bucket_ids, bucket_counts);

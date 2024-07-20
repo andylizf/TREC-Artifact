@@ -8,6 +8,7 @@
 #include <c10/cuda/CUDAGuard.h>
 #include <c10/util/logging_is_not_google_glog.h>
 #include <cstdint>
+#include <vector_types.h>
 
 #include "../utils.h"
 #include "convDR_forward.h"
@@ -96,14 +97,19 @@ private:
         const Tensor vectors,
         const Tensor bucket_sum)
     {
+        const int batch = 3;
+        const int batch_size = (num_rows + batch - 1) / batch;
+
+        dim3 gridDim(n_matrices, batch);
         AT_DISPATCH_FLOATING_TYPES(vectors.scalar_type(), "get_centroids_add_cuda", ([&] {
             get_centroids_add_cuda_kernel<scalar_t>
-                <<<n_matrices, CUDA_NUM_THREADS, num_rows * sizeof(ID_DATATYPE), stream>>>(
+                <<<gridDim, CUDA_NUM_THREADS, batch_size * sizeof(ID_DATATYPE), stream>>>(
                     bucket_ids.packed_accessor32<int, 2, torch::RestrictPtrTraits>(),
                     vectors.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
                     bucket_sum.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
                     vector_dim,
-                    num_rows);
+                    num_rows,
+                    batch_size);
         }));
         AT_CUDA_CHECK(cudaGetLastError());
     }

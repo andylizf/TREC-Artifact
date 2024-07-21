@@ -100,6 +100,9 @@ def main():
         net.load_state_dict(torch.load(args.model_path))
 
     net = net.cuda()
+
+    torch.backends.cudnn.enabled = False
+
     test(net, testset, testloader)
 
 

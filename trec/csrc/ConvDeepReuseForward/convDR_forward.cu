@@ -16,6 +16,11 @@
 
 using at::Tensor;
 
+constexpr std::size_t ceil_div(std::size_t num, std::size_t denom)
+{
+    return (num + denom - 1) / denom;
+}
+
 class CovDeepReuse {
 private:
     Tensor inputs; // [batch_size, nInputPlane, inputHeight, inputWidth]
@@ -98,13 +103,23 @@ private:
         const Tensor bucket_sum,
         const int max_buckets)
     {
-        const int batch = 3;
-        const int batch_size = (num_rows + batch - 1) / batch;
-        const int sharedMem = batch_size * sizeof(int) + max_buckets * vector_dim * sizeof(float);
+        constexpr int best_shared_mem = 16384;
+
+        using index_t = unsigned int;
+        assert(max_buckets <= std::numeric_limits<index_t>::max());
+
+        const int fixed_mem = max_buckets * vector_dim * sizeof(float);
+        const int rest_mem = best_shared_mem - fixed_mem;
+
+        const int expected_batch_size = rest_mem / sizeof(index_t);
+        const int batch = ceil_div(num_rows, expected_batch_size);
+        const int batch_size = ceil_div(num_rows, batch);
+
+        const int sharedMem = fixed_mem + batch_size * sizeof(index_t);
 
         dim3 gridDim(n_matrices, batch);
         AT_DISPATCH_FLOATING_TYPES(vectors.scalar_type(), "get_centroids_add_cuda", ([&] {
-            get_centroids_add_cuda_kernel<scalar_t>
+            get_centroids_add_cuda_kernel<scalar_t, index_t>
                 <<<gridDim, CUDA_NUM_THREADS, sharedMem, stream>>>(
                     bucket_compact_ids.packed_accessor32<int, 2, torch::RestrictPtrTraits>(),
                     vectors.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),

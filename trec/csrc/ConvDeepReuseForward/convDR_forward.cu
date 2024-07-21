@@ -93,20 +93,23 @@ private:
 
     void get_centroids_add_cuda(
         const cudaStream_t stream,
-        const Tensor bucket_ids,
+        const Tensor bucket_compact_ids,
         const Tensor vectors,
-        const Tensor bucket_sum)
+        const Tensor bucket_sum,
+        const int max_buckets)
     {
         const int batch = 3;
         const int batch_size = (num_rows + batch - 1) / batch;
+        const int sharedMem = batch_size * sizeof(int) + max_buckets * vector_dim * sizeof(float);
 
         dim3 gridDim(n_matrices, batch);
         AT_DISPATCH_FLOATING_TYPES(vectors.scalar_type(), "get_centroids_add_cuda", ([&] {
             get_centroids_add_cuda_kernel<scalar_t>
-                <<<gridDim, CUDA_NUM_THREADS, batch_size * sizeof(ID_DATATYPE), stream>>>(
-                    bucket_ids.packed_accessor32<int, 2, torch::RestrictPtrTraits>(),
+                <<<gridDim, CUDA_NUM_THREADS, sharedMem, stream>>>(
+                    bucket_compact_ids.packed_accessor32<int, 2, torch::RestrictPtrTraits>(),
                     vectors.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
                     bucket_sum.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+                    max_buckets,
                     vector_dim,
                     num_rows,
                     batch_size);
@@ -145,10 +148,9 @@ private:
 
     void div_remap_centroids_cuda(
         const cudaStream_t stream,
-        const torch::Tensor bucket_centroids,
+        torch::Tensor bucket_centroids,
         const torch::Tensor bucket_compact_mapping,
-        const torch::Tensor bucket_counts,
-        const torch::Tensor centroids_for_compute)
+        const torch::Tensor bucket_counts)
     {
         AT_DISPATCH_FLOATING_TYPES(bucket_centroids.scalar_type(), "remap_centroids_cuda", ([&] {
             div_remap_centroids_cuda_kernel<scalar_t>
@@ -156,7 +158,6 @@ private:
                     bucket_centroids.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
                     bucket_compact_mapping.packed_accessor32<int, 2, torch::RestrictPtrTraits>(),
                     bucket_counts.packed_accessor32<int, 2, torch::RestrictPtrTraits>(),
-                    centroids_for_compute.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
                     n_matrices,
                     num_buckets,
                     vector_dim);
@@ -284,7 +285,6 @@ public:
         Tensor input_row = at::zeros({ n_matrices, param_L, num_rows }, inputs.options());
         Tensor bucket_ids = at::zeros({ n_matrices, num_rows }, inputs.options().dtype(ID_DATATYPE_AT));
         Tensor bucket_counts = at::zeros({ n_matrices, num_buckets }, inputs.options().dtype(at::kInt));
-        Tensor bucket_centroids = at::zeros({ n_matrices, num_buckets, vector_dim }, inputs.options());
         Tensor reconstructed_output = at::zeros({ batch_size, n_output_plane, image_size }, inputs.options());
         Tensor bucket_compact_ids = at::zeros({ n_matrices, num_rows }, inputs.options().dtype(at::kInt));
 
@@ -297,25 +297,25 @@ public:
 
         get_id_count_cuda(stream, hashed_vectors, bucket_ids, bucket_counts);
 
-        get_centroids_add_cuda(stream, bucket_ids, input_row, bucket_centroids);
-
         Tensor bucket_compact_mapping = at::zeros({ n_matrices, num_buckets }, inputs.options().dtype(at::kInt));
 
         Tensor bucket_stats = at::zeros(1, inputs.options().dtype(at::kInt));
         index_bucket_cuda(stream, bucket_counts, bucket_compact_mapping, bucket_stats);
 
         get_bucket_compact_ids_cuda(stream, bucket_ids, bucket_compact_mapping, bucket_compact_ids);
-
         int64_t max_buckets = bucket_stats.item<int64_t>();
-        Tensor centroids_for_compute = at::zeros({ n_matrices, max_buckets, param_L }, inputs.options());
 
-        div_remap_centroids_cuda(stream, bucket_centroids, bucket_compact_mapping, bucket_counts, centroids_for_compute);
+        Tensor bucket_centroids = at::zeros({ n_matrices, max_buckets, vector_dim }, inputs.options());
+
+        get_centroids_add_cuda(stream, bucket_compact_ids, input_row, bucket_centroids, max_buckets);
+
+        div_remap_centroids_cuda(stream, bucket_centroids, bucket_compact_mapping, bucket_counts);
 
         Tensor weights_matrices = weights.reshape({ n_output_plane, row_length })
                                       .t()
                                       .reshape({ n_matrices, param_L, n_output_plane });
 
-        Tensor centroids_after_mm = centroids_for_compute.bmm(weights_matrices);
+        Tensor centroids_after_mm = bucket_centroids.bmm(weights_matrices);
 
         reconstruct_output_cuda(stream, bucket_compact_ids, centroids_after_mm, reconstructed_output);
 
@@ -330,7 +330,7 @@ public:
             get_bucket_counts_out_cuda(stream, bucket_compact_mapping, bucket_compact_mapping_inv, bucket_counts, bucket_counts_out);
 
             return { std::move(reconstructed_output),
-                std::move(centroids_for_compute),
+                std::move(bucket_centroids),
                 std::move(bucket_compact_ids),
                 std::move(bucket_ids),
                 std::move(bucket_counts_out),

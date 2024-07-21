@@ -138,9 +138,10 @@ __global__ void get_id_count_cuda_kernel(
 // threadIdx.x: num_rows * vector_dim
 template <typename scalar_t>
 __global__ void get_centroids_add_cuda_kernel(
-    const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_ids,
+    const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_compact_ids,
     const at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> vectors,
     at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> bucket_sum,
+    const int max_bucket,
     const int vector_dim,
     const int num_rows,
     const int batch_size)
@@ -150,22 +151,36 @@ __global__ void get_centroids_add_cuda_kernel(
     const int batch_start = batch_id * batch_size;
     const int batch_len = std::min(batch_size, num_rows - batch_start);
 
-    // cache shared_bucket_ids[matrix_id] in shared memory
-    __shared__ extern int shared_bucket_ids[]; // batch_len
-
+    // cache shared_bucket_compact_ids[matrix_id] in shared memory
+    __shared__ extern int shared_bucket_compact_ids[]; // batch_len
     for (int i = threadIdx.x; i < batch_len; i += blockDim.x) {
-        shared_bucket_ids[i] = bucket_ids[matrix_id][i + batch_start];
+        shared_bucket_compact_ids[i] = bucket_compact_ids[matrix_id][i + batch_start];
     }
+
+    // __shared__ extern float shared_bucket_sum[]; // max_bucket * vector_dim
+    // for (int i = threadIdx.x; i < max_bucket * vector_dim; i += blockDim.x) {
+    //     shared_bucket_sum[i] = 0;
+    // }
+
     __syncthreads();
 
     for (int i = threadIdx.x; i < batch_len * vector_dim; i += blockDim.x) {
         const int local_vector_id = i / vector_dim;
         const int vector_offset = i % vector_dim;
 
-        int bucket_id = shared_bucket_ids[local_vector_id];
-        atomicAdd(&bucket_sum[matrix_id][bucket_id][vector_offset],
+        int bucket_compact_id = shared_bucket_compact_ids[local_vector_id];
+
+        atomicAdd(&bucket_sum[matrix_id][bucket_compact_id][vector_offset],
             vectors[matrix_id][batch_start + local_vector_id][vector_offset]);
+        // atomicAdd(&shared_bucket_sum[bucket_compact_id * vector_dim + vector_offset],
+        //     vectors[matrix_id][batch_start + local_vector_id][vector_offset]);
     }
+    __syncthreads();
+
+    // for (int i = threadIdx.x; i < max_bucket * vector_dim; i += blockDim.x) {
+    //     atomicAdd(&bucket_sum[matrix_id][i / vector_dim][i % vector_dim], shared_bucket_sum[i]);
+    // }
+    // __syncthreads();
 }
 
 __global__ void index_bucket_cuda_kernel(
@@ -189,6 +204,7 @@ __global__ void index_bucket_cuda_kernel(
             bucket_compact_mapping[matrix_id][bucket_id] = -1;
         }
     }
+    __syncthreads();
 
     if (threadIdx.x % warpSize == 0) {
         atomicMax(max_buckets, bucket_num);
@@ -213,10 +229,9 @@ __global__ void get_bucket_compact_ids_cuda_kernel(
 
 template <typename scalar_t>
 __global__ void div_remap_centroids_cuda_kernel(
-    const at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> bucket_centroids,
+    at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> bucket_centroids,
     const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_compact_mapping,
     const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_counts,
-    at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> centroids_for_compute,
     const int n_matrices,
     const int num_buckets,
     const int vector_dim)
@@ -228,9 +243,7 @@ __global__ void div_remap_centroids_cuda_kernel(
         int vector_offset = index % vector_dim;
 
         if (int bucket_compact_id = bucket_compact_mapping[matrix_id][bucket_id]; bucket_compact_id >= 0) {
-            centroids_for_compute[matrix_id][bucket_compact_id][vector_offset]
-                = bucket_centroids[matrix_id][bucket_id][vector_offset]
-                / bucket_counts[matrix_id][bucket_id];
+            bucket_centroids[matrix_id][bucket_compact_id][vector_offset] /= bucket_counts[matrix_id][bucket_id];
         }
     }
 }

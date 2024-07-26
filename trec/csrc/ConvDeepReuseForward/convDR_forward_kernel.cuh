@@ -40,10 +40,9 @@ inline int GET_BLOCKS(const int N)
 // we then split each row into multiple matrices, each contains `param_L` elements, and the shape becomes
 // [matrix_id, batch_size, output_height, output_width, param_L]
 template <typename scalar_t>
-__global__ void im2row_DRbatch_cuda_kernel(
+__global__ void im2col_cuda_kernel(
     const int n,
-    at::PackedTensorAccessor32<scalar_t, 4, at::RestrictPtrTraits> data_im,
-    const int64_t batch_size,
+    at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> data_im,
     const int channels,
     const int input_height,
     const int input_width,
@@ -56,14 +55,13 @@ __global__ void im2row_DRbatch_cuda_kernel(
     const int output_height,
     const int output_width,
     const int vector_dim,
-    at::PackedTensorAccessor32<scalar_t, 5, at::RestrictPtrTraits> data_row) // output
+    at::PackedTensorAccessor32<scalar_t, 4, at::RestrictPtrTraits> data_row) // output
 {
-    CUDA_1D_KERNEL_LOOP(index, batch_size * channels * output_height * output_width)
+    CUDA_1D_KERNEL_LOOP(index, channels * output_height * output_width)
     {
         const int w_out = index % output_width;
         const int h_out = (index / output_width) % output_height;
-        const int channel_in = (index / output_width / output_height) % channels;
-        const int batch_id = index / output_width / output_height / channels;
+        const int channel_in = index / output_width / output_height;
 
         const int h_in = h_out * stride_height - pad_height;
         const int w_in = w_out * stride_width - pad_width;
@@ -77,9 +75,9 @@ __global__ void im2row_DRbatch_cuda_kernel(
                 const int matrix_offset = row_offset % vector_dim;
                 const int matrix_id = row_offset / vector_dim;
 
-                data_row[matrix_id][matrix_offset][batch_id][h_out][w_out]
+                data_row[matrix_id][matrix_offset][h_out][w_out]
                     = (h >= 0 && w >= 0 && h < input_height && w < input_width)
-                    ? data_im[batch_id][channel_in][h][w]
+                    ? data_im[channel_in][h][w]
                     : static_cast<scalar_t>(0);
             }
         }
@@ -87,25 +85,34 @@ __global__ void im2row_DRbatch_cuda_kernel(
 }
 
 template <typename scalar_t>
-__device__ inline auto binary_mapping(
-    const at::TensorAccessor<scalar_t, 1, at::RestrictPtrTraits, signed int> vector,
-    const int vector_dim) -> int
+__global__ void get_id_count_cuda_kernel_baseline(
+    const int vector_dim,
+    const int n_matrices,
+    const int image_size,
+    const at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> hashed_vectors,
+    at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_counts,
+    at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_ids)
 {
-    int encoded_int = 0;
-    for (int i = 0; i < vector_dim; ++i) {
-        encoded_int = (encoded_int << 1) | (vector[i] > 0);
+    CUDA_1D_KERNEL_LOOP(index, n_matrices * image_size)
+    {
+        const int matrix_id = index / image_size;
+        const int vector_id = index % image_size;
+
+        int bucket_id = 0;
+        for (int i = 0; i < vector_dim; ++i) {
+            bucket_id = (bucket_id << 1) | (hashed_vectors[matrix_id][vector_id][i] > 0);
+        }
+
+        bucket_ids[matrix_id][vector_id] = bucket_id;
+        atomicAdd(&bucket_counts[matrix_id][bucket_id], 1);
     }
-    return encoded_int;
 }
 
-// for matrix_id, vector_idx in n_matrices * num_rows
-//     vector_ids[matrix_id][vector_idx] = to_binary(hashed_vectors[matrix_id][vector_idx])
-//     bucket_counts[matrix_id][vector_ids[matrix_id][vector_idx]] += 1
 template <typename scalar_t>
 __global__ void get_id_count_cuda_kernel(
     const int vector_dim,
-    const int64_t num_rows,
-    const int64_t num_buckets,
+    const int image_size,
+    const int num_buckets,
     const at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> hashed_vectors,
     at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_counts,
     at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_ids)
@@ -119,71 +126,109 @@ __global__ void get_id_count_cuda_kernel(
     }
     __syncthreads();
 
-    for (int vector_id = threadIdx.x; vector_id < num_rows; vector_id += blockDim.x) {
-        int bucket_id = binary_mapping(hashed_vectors[matrix_id][vector_id], vector_dim);
+    for (int vector_id = threadIdx.x; vector_id < image_size; vector_id += blockDim.x) {
+        int bucket_id = 0;
+        for (int i = 0; i < vector_dim; ++i) {
+            bucket_id = (bucket_id << 1) | (hashed_vectors[matrix_id][vector_id][i] > 0);
+        }
+
         bucket_ids[matrix_id][vector_id] = bucket_id;
         atomicAdd(&shared_bucket_counts[bucket_id], 1);
     }
     __syncthreads();
 
     for (int bucket_id = threadIdx.x; bucket_id < num_buckets; bucket_id += blockDim.x) {
-        bucket_counts[matrix_id][bucket_id] = shared_bucket_counts[bucket_id];
+        bucket_counts[matrix_id][bucket_id] += shared_bucket_counts[bucket_id];
     }
 }
 
-// for matrix_id, vector_idx, vector_offset in num_rows * n_matrices * vector_dim
-//   buckets_sum[matrix_id][vector_ids[matrix_id][vector_idx]][vector_offset]
-//      += vectors[matrix_id][vector_idx][vector_offset]
-// blockIdx.x: n_matrices
-// threadIdx.x: num_rows * vector_dim
-template <typename scalar_t, typename index_t>
-__global__ void get_centroids_add_cuda_kernel(
-    const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_compact_ids,
+template <typename scalar_t>
+__global__ void get_centroids_add_cuda_kernel_baseline(
+    const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_ids,
     const at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> vectors,
     at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> bucket_sum,
-    const int max_bucket,
+    const int n_matrices,
+    const int image_size,
+    const int vector_dim)
+{
+    CUDA_1D_KERNEL_LOOP(index, n_matrices * image_size * vector_dim)
+    {
+        const int matrix_id = index / (image_size * vector_dim);
+        const int vector_id = (index / vector_dim) % image_size;
+        const int vector_offset = index % vector_dim;
+
+        int bucket_id = bucket_ids[matrix_id][vector_id];
+
+        atomicAdd(&bucket_sum[matrix_id][bucket_id][vector_offset],
+            vectors[matrix_id][vector_offset][vector_id]);
+    }
+}
+
+template <typename scalar_t>
+__global__ void get_centroids_add_cuda_kernel(
+    const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_ids,
+    const at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> vectors,
+    at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> bucket_sum,
+    const int num_buckets,
     const int vector_dim,
-    const int num_rows,
-    const int batch_size)
+    const int image_size)
 {
     const int matrix_id = blockIdx.x;
-    const int batch_id = blockIdx.y;
-    const int batch_start = batch_id * batch_size;
-    const int batch_len = std::min(batch_size, num_rows - batch_start);
 
     __shared__ extern char shared_data[];
 
     float* shared_bucket_sum = (float*)shared_data;
-    for (int i = threadIdx.x; i < max_bucket * vector_dim; i += blockDim.x) {
+    for (int i = threadIdx.x; i < num_buckets * vector_dim; i += blockDim.x) {
         shared_bucket_sum[i] = 0;
     }
 
-    index_t* shared_bucket_compact_ids = (index_t*)&shared_bucket_sum[max_bucket * vector_dim];
-    for (int i = threadIdx.x; i < batch_len; i += blockDim.x) {
-        shared_bucket_compact_ids[i] = static_cast<index_t>(bucket_compact_ids[matrix_id][batch_start + i]);
+    int* shared_bucket_ids = (int*)&shared_bucket_sum[num_buckets * vector_dim];
+    for (int i = threadIdx.x; i < image_size; i += blockDim.x) {
+        shared_bucket_ids[i] = bucket_ids[matrix_id][i];
     }
 
     __syncthreads();
 
-    for (int i = threadIdx.x; i < batch_len * vector_dim; i += blockDim.x) {
-        const int local_vector_id = i / vector_dim;
+    for (int i = threadIdx.x; i < image_size * vector_dim; i += blockDim.x) {
+        const int vector_id = i / vector_dim;
         const int vector_offset = i % vector_dim;
 
-        int bucket_compact_id = shared_bucket_compact_ids[local_vector_id];
+        int bucket_id = shared_bucket_ids[vector_id];
 
-        atomicAdd(&shared_bucket_sum[bucket_compact_id * vector_dim + vector_offset],
-            vectors[matrix_id][batch_start + local_vector_id][vector_offset]);
+        atomicAdd(&shared_bucket_sum[bucket_id * vector_dim + vector_offset],
+            vectors[matrix_id][vector_offset][vector_id]);
     }
     __syncthreads();
 
-    for (int i = threadIdx.x; i < max_bucket * vector_dim; i += blockDim.x) {
+    for (int i = threadIdx.x; i < num_buckets * vector_dim; i += blockDim.x) {
         atomicAdd(&bucket_sum[matrix_id][i / vector_dim][i % vector_dim], shared_bucket_sum[i]);
     }
     __syncthreads();
 }
 
+__global__ void index_bucket_cuda_kernel_baseline(
+    const int n_matrices,
+    const int num_buckets,
+    const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_counts,
+    at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_compact_mapping,
+    int* __restrict__ max_buckets)
+{
+    CUDA_1D_KERNEL_LOOP(matrix_id, n_matrices)
+    {
+        int bucket_num = 0;
+        for (int bucket_id = 0; bucket_id < num_buckets; ++bucket_id) {
+            if (bucket_counts[matrix_id][bucket_id] > 0) {
+                bucket_compact_mapping[matrix_id][bucket_id] = bucket_num++;
+            } else {
+                bucket_compact_mapping[matrix_id][bucket_id] = -1;
+            }
+        }
+        atomicMax(max_buckets, bucket_num);
+    }
+}
+
 __global__ void index_bucket_cuda_kernel(
-    const int64_t num_buckets,
+    const int num_buckets,
     const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_counts,
     at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_compact_mapping,
     int* __restrict__ max_buckets)
@@ -228,9 +273,10 @@ __global__ void get_bucket_compact_ids_cuda_kernel(
 
 template <typename scalar_t>
 __global__ void div_remap_centroids_cuda_kernel(
-    at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> bucket_centroids,
+    const at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> bucket_centroids,
     const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_compact_mapping,
     const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_counts,
+    at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> compact_bucket_centroids,
     const int n_matrices,
     const int num_buckets,
     const int vector_dim)
@@ -242,7 +288,8 @@ __global__ void div_remap_centroids_cuda_kernel(
         int vector_offset = index % vector_dim;
 
         if (int bucket_compact_id = bucket_compact_mapping[matrix_id][bucket_id]; bucket_compact_id >= 0) {
-            bucket_centroids[matrix_id][bucket_compact_id][vector_offset] /= bucket_counts[matrix_id][bucket_id];
+            compact_bucket_centroids[matrix_id][bucket_compact_id][vector_offset]
+                = bucket_centroids[matrix_id][bucket_id][vector_offset] / bucket_counts[matrix_id][bucket_id];
         }
     }
 }

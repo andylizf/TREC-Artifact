@@ -44,3 +44,28 @@ inline void DEBUG_PRINT([[maybe_unused]] const Args&... args)
     printf(args...);
 #endif
 }
+
+#include <fstream>
+
+inline void _tensor_print(const torch::Tensor& tensor, std::ofstream& file)
+{
+    if (tensor.dim() == 1) {
+        for (int i = 0; i < tensor.size(0); i++) {
+            file << tensor[i].item<float>() << " ";
+        }
+        file << std::endl;
+    } else {
+        for (int i = 0; i < tensor.size(0); i++) {
+            _tensor_print(tensor[i], file);
+        }
+    }
+}
+
+inline void tensor_print(const at::Tensor& tensor, std::string name)
+{
+    time_t now = time(0);
+    std::ofstream file("./results/" + name + "_" + std::to_string(now) + "wro.txt");
+    _tensor_print(tensor, file);
+}
+
+#define PRINT_TENSOR(tensor) tensor_print(tensor, #tensor)

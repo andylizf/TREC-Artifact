@@ -48,5 +48,8 @@ def get_network(args) -> torch.nn.Module:
     elif args.model_name in ('SqueezeNet_Complex_Bypass', 'Squeeze_complex_bypass', 'squeeze_complex_bypass', 'Squeeze_BP', 'Squeeze_bp', 'squeeze_bp'):
         from models.squeezenet_complex_bypass import SqueezeNet_TREC
         return SqueezeNet_TREC(args.L, args.H, args.bp_L, args.bp_H, args.trec, args.bp_trec)
+    elif args.model_name in ('resnet18', 'ResNet18', 'Resnet', 'resnet'):
+        from models.resnet import resnet20_cifar
+        return resnet20_cifar(param_L=args.L, param_H=args.H)
     else:
         raise ValueError(f'Unknown model name: {args.model_name}')

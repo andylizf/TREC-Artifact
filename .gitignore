@@ -178,3 +178,5 @@ results/
 examples/*.txt
 *.png
 compiled_cache.db
+
+examples/EXP_baseline

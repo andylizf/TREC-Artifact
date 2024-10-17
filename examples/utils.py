@@ -51,5 +51,8 @@ def get_network(args) -> torch.nn.Module:
     elif args.model_name in ('resnet18', 'ResNet18', 'Resnet', 'resnet'):
         from models.resnet import resnet20_cifar
         return resnet20_cifar(param_L=args.L, param_H=args.H)
+    elif args.model_name in ('densenet', 'Densenet', 'Densenet', 'Densenet'):
+        from models.densenet import densenet_BC_cifar_TREC
+        return densenet_BC_cifar_TREC(depth=args.depth, k=args.k, params_L=args.L, params_H=args.H, trec=args.trec)
     else:
         raise ValueError(f'Unknown model name: {args.model_name}')

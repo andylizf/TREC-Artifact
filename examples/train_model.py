@@ -119,7 +119,7 @@ def main():
     net = net.cuda()
 
     max_acc = 0
-    optimizer = optim.SGD(net.parameters(), lr=args.learning_rate,
+    optimizer = optim.SGD(net.parameters(), lr=args.learning_rate, # type: ignore
                           momentum=args.momentum, weight_decay=args.weight_decay)
     scheduler = optim.lr_scheduler.StepLR(
         optimizer, args.step, gamma=0.1, last_epoch=-1)

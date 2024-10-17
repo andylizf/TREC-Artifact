@@ -16,6 +16,11 @@ PROFILE_MODE = os.getenv("PROFILE", "0") == "1"
 RELEASE_MODE = os.getenv("RELEASE", "0") == "1"
 PRINT_FLAGS = os.getenv("PRINT", "0") == "1"
 
+RED = "\033[91m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+BLUE = "\033[94m"
+RESET = "\033[0m"
 
 class MyBuildExtension(BuildExtension):
     """
@@ -36,9 +41,9 @@ class MyBuildExtension(BuildExtension):
 
 def get_extensions():
     if DEBUG_MODE:
-        print("Building in debug mode")
+        print(f"{RED}Building in debug mode{RESET}")
 
-    assert torch.cuda.is_available() and CUDA_HOME is not None, "CUDA is not available."
+    assert torch.cuda.is_available() and CUDA_HOME is not None, f"{RED}CUDA is not available.{RESET}"
 
     extra_compile_args = {
         "cxx": [

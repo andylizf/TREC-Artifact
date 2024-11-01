@@ -95,6 +95,7 @@ def main():
         logging.info('no gpu device available')
         sys.exit(1)
 
+    torch.cuda.init()
     torch.cuda.set_device(args.gpu)
     cudnn.benchmark = True
     cudnn.enabled = True
@@ -132,8 +133,10 @@ def main():
         '''Train'''
         for i, data in enumerate(trainloader, 0):
             inputs, labels = data
+            inputs = inputs.cuda()
+            labels = labels.cuda()
             optimizer.zero_grad()
-            outputs = net(inputs.cuda()).cpu()
+            outputs = net(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
             nn.utils.clip_grad_norm_(net.parameters(), args.grad_clip)

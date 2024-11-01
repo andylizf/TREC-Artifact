@@ -1,4 +1,3 @@
-
 """Generic training script that train a model using a given dataset."""
 
 import argparse
@@ -48,8 +47,13 @@ parser.add_argument('--bp_L', type=str, default=[1]*4, action=utils.SplitArgs,
 parser.add_argument('--bp_H', type=str, default=[1]*4, action=utils.SplitArgs,
                     help='H of each conv layer')
 parser.add_argument('--gpu', type=int, default=0, help='gpu device id')
+parser.add_argument('--depth', type=int, default=40, help='depth of DenseNet')
+parser.add_argument('--k', type=int, default=12, help='growth rate of DenseNet')
 args = parser.parse_args()
 
+if not any(args.trec):
+    args.L = None
+    args.H = None
 
 '''Logging settings'''
 utils.create_exp_dir(args.checkpoint_path)
@@ -91,6 +95,7 @@ def main():
         logging.info('no gpu device available')
         sys.exit(1)
 
+    torch.cuda.init()
     torch.cuda.set_device(args.gpu)
     cudnn.benchmark = True
     cudnn.enabled = True
@@ -115,7 +120,7 @@ def main():
     net = net.cuda()
 
     max_acc = 0
-    optimizer = optim.SGD(net.parameters(), lr=args.learning_rate,
+    optimizer = optim.SGD(net.parameters(), lr=args.learning_rate, # type: ignore
                           momentum=args.momentum, weight_decay=args.weight_decay)
     scheduler = optim.lr_scheduler.StepLR(
         optimizer, args.step, gamma=0.1, last_epoch=-1)
@@ -128,8 +133,10 @@ def main():
         '''Train'''
         for i, data in enumerate(trainloader, 0):
             inputs, labels = data
+            inputs = inputs.cuda()
+            labels = labels.cuda()
             optimizer.zero_grad()
-            outputs = net(inputs.cuda()).cpu()
+            outputs = net(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
             nn.utils.clip_grad_norm_(net.parameters(), args.grad_clip)
@@ -152,15 +159,15 @@ def main():
         acc = test(net, testset, testloader)
         if acc > max_acc:
             max_acc = acc
-            logging.info("Saving currently best model..")
+            logging.info(f'Saving currently best model.. to {args.checkpoint_path}/weights.pt')
             utils.save(net, os.path.join(args.checkpoint_path, 'weights.pt'))
         if epoch == 49:
-            logging.info("Saving model in the 50th epoch..")
+            logging.info(f'Saving model in the 50th epoch.. to {args.checkpoint_path}/weights_50.pt')
             utils.save(net, os.path.join(
                 args.checkpoint_path, 'weights_50.pt'))
             test(net, testset, testloader)
 
-    logging.info("Saving model..")
+    logging.info(f'Saving model in the 100th epoch.. to {args.checkpoint_path}/weights_100.pt')
     utils.save(net, os.path.join(args.checkpoint_path, 'weights_100.pt'))
     test(net, testset, testloader)
     logging.info('Finished Training')

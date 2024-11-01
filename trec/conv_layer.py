@@ -31,13 +31,14 @@ class Conv2d_TREC_Function(torch.autograd.Function):
         timer_start = torch.cuda.Event(enable_timing=True)
         timer_end = torch.cuda.Event(enable_timing=True)
         timer_start.record()  # type: ignore
+        print(f'layer {layer} calling')
         outputs = conv_deep_reuse_forward(inputs, weights, bias, random_vectors,
                                           padding[0], padding[1], stride[0], stride[1],
                                           param_L, param_H, do_bias, is_training)
 
         timer_end.record()  # type: ignore
         torch.cuda.synchronize()
-        print(f"Conv2d_TREC time: {timer_start.elapsed_time(timer_end)}")
+        # print(f"Conv2d_TREC time: {timer_start.elapsed_time(timer_end)}")
 
         if is_training:
             _, inputCentroids, vector_index, vector_ids, buckets_count, buckets_index, buckets_index_inv, input_row = outputs

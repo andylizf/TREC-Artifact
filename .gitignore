@@ -175,3 +175,8 @@ compile_commands.json
 
 # Experiment results
 results/
+examples/*.txt
+*.png
+compiled_cache.db
+
+examples/EXP_baseline

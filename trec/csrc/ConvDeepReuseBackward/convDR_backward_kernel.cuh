@@ -212,6 +212,10 @@ __global__ void row2im_batch_cuda_kernel(
         int64_t c_im = idx % channels;
         int64_t batch_id = idx / channels;
 
+        if (c_im >= channels || h_im >= height || w_im >= width) {
+            return;
+        }
+
         int64_t w_row_start = (w_im < kernel_width)
             ? 0
             : (w_im - kernel_width) / stride_width + 1;

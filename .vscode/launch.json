@@ -1,0 +1,111 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "CUDA C++: Launch",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${command:python.interpreterPath}",
+            "cwd": "${workspaceFolder}/examples",
+            "args": "eval_model.py --model_path=pre_trained_models/cifar.pt --dataset_path=data --model_name=CifarNet --batch_size=100 --trec=0,1 --L=5,10 --H=15,10 --gpu=0 --verbose"
+        },
+        {
+            "name": "CUDA C++: Attach",
+            "type": "cuda-gdb",
+            "request": "attach"
+        },
+        {
+            "name":"Python Debugger: Current File",
+            "type":"debugpy",
+            "request":"launch",
+            "program":"${file}",
+            "console":"integratedTerminal",
+        },
+        
+        {
+            "name": "CUDA C++: Densenet",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${command:python.interpreterPath}",
+            "args": [
+                "train_model.py",
+                "--checkpoint_path=EXP",
+                "--dataset_path=data",
+                "--model_name=densenet",
+                "--epochs=100",
+                "--batch_size=64",
+                "--learning_rate=0.1",
+                "--momentum=0.9",
+                "--weight_decay=1e-4",
+                "--depth=40",
+                "--k=12",
+                "--trec=1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+                "--L=9,3,9,3,9,3,9,3,9,3,9,3,9,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6",
+                "--H=8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8",
+                "--gpu=0"
+            ],
+            "cwd": "${workspaceFolder}/examples",
+            "environment": [
+                {
+                    "name": "CUDA_LAUNCH_BLOCKING",
+                    "value": "1"
+                }
+            ]
+        },
+        {
+            "name": "Densenet",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_model.py",
+            "args": [
+                "--checkpoint_path=EXP",
+                "--dataset_path=data",
+                "--model_name=densenet",
+                "--epochs=100",
+                "--batch_size=64",
+                "--learning_rate=0.1",
+                "--momentum=0.9",
+                "--weight_decay=1e-4",
+                "--depth=40",
+                "--k=12",
+                "--trec=1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+                "--L=9,3,9,3,9,3,9,3,9,3,9,3,9,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6",
+                "--H=8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8",
+                "--gpu=0"
+            ],
+            "cwd": "${workspaceFolder}/examples",
+            "env": {
+                "CUDA_LAUNCH_BLOCKING": "1"
+            },
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Densenet Without TREC",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_model.py",
+            "args": [
+                "--checkpoint_path=EXP",
+                "--dataset_path=data",
+                "--model_name=densenet",
+                "--epochs=100",
+                "--batch_size=64",
+                "--learning_rate=0.1",
+                "--momentum=0.9",
+                "--weight_decay=1e-4",
+                "--depth=40",
+                "--k=12",
+                "--trec=0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
+                "--gpu=0"
+            ],
+            "env": {
+                "CUDA_LAUNCH_BLOCKING": "1"
+            },
+            "cwd": "${workspaceFolder}/examples",
+            "console": "integratedTerminal"
+        }
+    ]
+}

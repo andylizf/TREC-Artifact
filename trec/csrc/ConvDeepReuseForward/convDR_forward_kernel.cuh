@@ -182,6 +182,27 @@ __global__ void get_centroids_add_cuda_kernel(
     __syncthreads();
 }
 
+template <typename scalar_t, typename index_t>
+__global__ void get_centroids_add_cuda_kernel_global(
+    const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_compact_ids,
+    const at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> vectors,
+    at::PackedTensorAccessor32<scalar_t, 3, at::RestrictPtrTraits> bucket_sum,
+    const int max_bucket,
+    const int vector_dim,
+    const int num_rows)
+{
+    const int matrix_id = blockIdx.x;
+    
+    for (int i = threadIdx.x; i < num_rows * vector_dim; i += blockDim.x) {
+        const int vector_id = i / vector_dim;
+        const int vector_offset = i % vector_dim;
+        
+        int bucket_compact_id = bucket_compact_ids[matrix_id][vector_id];
+        atomicAdd(&bucket_sum[matrix_id][bucket_compact_id][vector_offset],
+                 vectors[matrix_id][vector_id][vector_offset]);
+    }
+}
+
 __global__ void index_bucket_cuda_kernel(
     const int64_t num_buckets,
     const at::PackedTensorAccessor32<int, 2, at::RestrictPtrTraits> bucket_counts,

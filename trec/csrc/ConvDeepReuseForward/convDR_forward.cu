@@ -109,26 +109,59 @@ private:
         assert(max_buckets <= std::numeric_limits<index_t>::max());
 
         const int fixed_mem = max_buckets * vector_dim * sizeof(float);
-        const int rest_mem = best_shared_mem - fixed_mem;
 
-        const int expected_batch_size = rest_mem / sizeof(index_t);
-        const int batch = ceil_div(num_rows, expected_batch_size);
-        const int batch_size = ceil_div(num_rows, batch);
+        // 如果需要的共享内存太大，使用 fallback 方案
+        if (fixed_mem > best_shared_mem) {
+            // Fallback: 使用全局内存版本
+            dim3 gridDim(n_matrices);
+            AT_DISPATCH_FLOATING_TYPES(vectors.scalar_type(), "get_centroids_add_cuda_global", ([&] {
+                get_centroids_add_cuda_kernel_global<scalar_t, index_t>
+                    <<<gridDim, CUDA_NUM_THREADS, 0, stream>>>(
+                        bucket_compact_ids.packed_accessor32<int, 2, torch::RestrictPtrTraits>(),
+                        vectors.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+                        bucket_sum.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+                        max_buckets,
+                        vector_dim,
+                        num_rows);
+            }));
+        } else {
+            // 原始共享内存版本
+            const int rest_mem = best_shared_mem - fixed_mem;
+            const int expected_batch_size = rest_mem / sizeof(index_t);
+            const int batch = ceil_div(num_rows, expected_batch_size);
+            const int batch_size = ceil_div(num_rows, batch);
 
-        const int sharedMem = fixed_mem + batch_size * sizeof(index_t);
+            // 添加防护检查
+            if (expected_batch_size <= 0) {
+                // 如果 expected_batch_size <= 0，强制使用 fallback
+                dim3 gridDim(n_matrices);
+                AT_DISPATCH_FLOATING_TYPES(vectors.scalar_type(), "get_centroids_add_cuda_global", ([&] {
+                    get_centroids_add_cuda_kernel_global<scalar_t, index_t>
+                        <<<gridDim, CUDA_NUM_THREADS, 0, stream>>>(
+                            bucket_compact_ids.packed_accessor32<int, 2, torch::RestrictPtrTraits>(),
+                            vectors.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+                            bucket_sum.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+                            max_buckets,
+                            vector_dim,
+                            num_rows);
+                }));
+                return;
+            }
 
-        dim3 gridDim(n_matrices, batch);
-        AT_DISPATCH_FLOATING_TYPES(vectors.scalar_type(), "get_centroids_add_cuda", ([&] {
-            get_centroids_add_cuda_kernel<scalar_t, index_t>
-                <<<gridDim, CUDA_NUM_THREADS, sharedMem, stream>>>(
-                    bucket_compact_ids.packed_accessor32<int, 2, torch::RestrictPtrTraits>(),
-                    vectors.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
-                    bucket_sum.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
-                    max_buckets,
-                    vector_dim,
-                    num_rows,
-                    batch_size);
-        }));
+            const int sharedMem = fixed_mem + batch_size * sizeof(index_t);
+            dim3 gridDim(n_matrices, batch);
+            AT_DISPATCH_FLOATING_TYPES(vectors.scalar_type(), "get_centroids_add_cuda", ([&] {
+                get_centroids_add_cuda_kernel<scalar_t, index_t>
+                    <<<gridDim, CUDA_NUM_THREADS, sharedMem, stream>>>(
+                        bucket_compact_ids.packed_accessor32<int, 2, torch::RestrictPtrTraits>(),
+                        vectors.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+                        bucket_sum.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+                        max_buckets,
+                        vector_dim,
+                        num_rows,
+                        batch_size);
+            }));
+        }
         AT_CUDA_CHECK(cudaGetLastError());
     }
 

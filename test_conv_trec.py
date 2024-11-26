@@ -21,7 +21,7 @@ def profile_conv_trec():
         in_channels=in_channels,
         out_channels=out_channels,
         kernel_size=kernel_size,
-        param_L=9,  # 可以根据需要调整
+        param_L=12,  # 可以根据需要调整
         param_H=8,  # 可以根据需要调整
         layer=0,    # 层索引
         padding=1,  # 保持输出大小不变

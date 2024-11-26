@@ -330,52 +330,67 @@ public:
 
     auto forward() -> std::vector<Tensor>
     {
+        double TIMER_t; // 添加计时器变量
+        TIMER_START; // 开始计时
+
         Tensor input_row = at::zeros({ n_matrices, param_L, num_rows }, inputs.options());
         Tensor bucket_ids = at::zeros({ n_matrices, num_rows }, inputs.options().dtype(ID_DATATYPE_AT));
         Tensor bucket_counts = at::zeros({ n_matrices, num_buckets }, inputs.options().dtype(at::kInt));
         Tensor reconstructed_output = at::zeros({ batch_size, n_output_plane, image_size }, inputs.options());
         Tensor bucket_compact_ids = at::zeros({ n_matrices, num_rows }, inputs.options().dtype(at::kInt));
 
-        auto stream = c10::cuda::getCurrentCUDAStream().stream();
+        auto stream = c10::cuda::getCurrentCUDAStream();
 
         im2row_DRbatch_cuda(stream, inputs, input_row);
+        TIMER_LAP("im2row_DRbatch_cuda");
 
         input_row = input_row.transpose(1, 2).contiguous();
+        TIMER_LAP("input_row transpose");
+
         Tensor hashed_vectors = at::matmul(input_row, random_vectors);
 
+        TIMER_LAP("matmul random vectors");
+
         get_id_count_cuda(stream, hashed_vectors, bucket_ids, bucket_counts);
+        TIMER_LAP("get_id_count_cuda");
 
         Tensor bucket_compact_mapping = at::zeros({ n_matrices, num_buckets }, inputs.options().dtype(at::kInt));
-
         Tensor bucket_stats = at::zeros(1, inputs.options().dtype(at::kInt));
         index_bucket_cuda(stream, bucket_counts, bucket_compact_mapping, bucket_stats);
+        TIMER_LAP("index_bucket_cuda");
 
         get_bucket_compact_ids_cuda(stream, bucket_ids, bucket_compact_mapping, bucket_compact_ids);
         int64_t max_buckets = bucket_stats.item<int64_t>();
+        TIMER_LAP("get_bucket_compact_ids_cuda");
 
         Tensor bucket_centroids = at::zeros({ n_matrices, max_buckets, vector_dim }, inputs.options());
-
         get_centroids_add_cuda(stream, bucket_compact_ids, input_row, bucket_centroids, max_buckets);
+        TIMER_LAP("get_centroids_add_cuda");
 
         div_remap_centroids_cuda(stream, bucket_centroids, bucket_compact_mapping, bucket_counts);
+        TIMER_LAP("div_remap_centroids_cuda");
 
         Tensor weights_matrices = weights.reshape({ n_output_plane, row_length })
                                       .t()
                                       .reshape({ n_matrices, param_L, n_output_plane });
-
         Tensor centroids_after_mm = bucket_centroids.bmm(weights_matrices);
+        TIMER_LAP("matrix multiplication");
 
         reconstruct_output_cuda(stream, bucket_compact_ids, centroids_after_mm, reconstructed_output);
+        TIMER_LAP("reconstruct_output_cuda");
 
         if (do_bias) {
             bias_add_cuda(stream, reconstructed_output, bias);
+            TIMER_LAP("bias_add_cuda");
         }
 
         reconstructed_output = reconstructed_output.view({ batch_size, n_output_plane, output_height, output_width });
+
         if (is_training) {
             Tensor bucket_counts_out = at::zeros({ n_matrices, max_buckets }, inputs.options().dtype(at::kInt));
             Tensor bucket_compact_mapping_inv = at::zeros({ n_matrices, max_buckets }, inputs.options().dtype(at::kInt));
             get_bucket_counts_out_cuda(stream, bucket_compact_mapping, bucket_compact_mapping_inv, bucket_counts, bucket_counts_out);
+            TIMER_LAP("get_bucket_counts_out_cuda");
 
             return { std::move(reconstructed_output),
                 std::move(bucket_centroids),
@@ -386,6 +401,7 @@ public:
                 std::move(bucket_compact_mapping_inv),
                 std::move(input_row) };
         }
+        TIMER_LAP("Total time");
         return { std::move(reconstructed_output) };
     }
 };

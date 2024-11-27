@@ -175,7 +175,7 @@ compile_commands.json
 
 # Experiment results
 results/
-examples/*.txt
+examples/**/*.txt
 *.png
 compiled_cache.db
 

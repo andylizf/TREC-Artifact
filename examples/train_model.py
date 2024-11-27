@@ -49,6 +49,12 @@ parser.add_argument('--bp_H', type=str, default=[1]*4, action=utils.SplitArgs,
 parser.add_argument('--gpu', type=int, default=0, help='gpu device id')
 parser.add_argument('--depth', type=int, default=40, help='depth of DenseNet')
 parser.add_argument('--k', type=int, default=12, help='growth rate of DenseNet')
+parser.add_argument('--disc_start', type=int, default=50001,
+                    help='discriminator start step')
+parser.add_argument('--kl_weight', type=float, default=0.000001,
+                    help='KL loss weight')
+parser.add_argument('--disc_weight', type=float, default=0.5,
+                    help='discriminator loss weight')
 args = parser.parse_args()
 
 if not any(args.trec):

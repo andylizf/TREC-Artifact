@@ -54,5 +54,8 @@ def get_network(args) -> torch.nn.Module:
     elif args.model_name in ('densenet', 'Densenet', 'Densenet', 'Densenet'):
         from models.densenet import densenet_BC_cifar_TREC
         return densenet_BC_cifar_TREC(depth=args.depth, k=args.k, params_L=args.L, params_H=args.H, trec=args.trec)
+    elif args.model_name in ('autoencoder', 'Autoencoder', 'autoencoder', 'autoencoder_trec'):
+        from models.autoencoder import AutoencoderTREC
+        return AutoencoderTREC(params_L=args.L, params_H=args.H, trec=args.trec)
     else:
         raise ValueError(f'Unknown model name: {args.model_name}')

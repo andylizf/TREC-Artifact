@@ -46,6 +46,9 @@ private:
     int64_t num_buckets;
     int64_t& vector_dim = param_L;
 
+    static constexpr int64_t NUM_STREAMS = 4; // 使用4个流进行流水线
+    static constexpr int64_t MIN_BATCH_SIZE = 4; // 每个小批次最小大小
+
     void im2col_cuda(
         const cudaStream_t stream,
         const Tensor input,
@@ -229,6 +232,30 @@ private:
         AT_CUDA_CHECK(cudaGetLastError());
     }
 
+    void process_batch(
+        const cudaStream_t& stream,
+        const int64_t start_idx,
+        const int64_t end_idx,
+        const Tensor& input_row,
+        const Tensor& hashed_vectors,
+        const Tensor& bucket_ids_batch,
+        Tensor& bucket_counts,
+        Tensor& bucket_centroids)
+    {
+        for (auto elt = start_idx; elt < end_idx; elt++) {
+            Tensor input = inputs.select(0, elt);
+            Tensor input_row_elt = input_row.select(0, elt - start_idx);
+            im2col_cuda(stream, input, input_row_elt);
+
+            Tensor hashed_vectors_elt = hashed_vectors.select(0, elt - start_idx);
+            hashed_vectors_elt = input_row_elt.transpose(1, 2).matmul(random_vectors);
+
+            Tensor bucket_ids_elt = bucket_ids_batch.select(0, elt - start_idx);
+            get_id_count_cuda(stream, hashed_vectors_elt, bucket_ids_elt, bucket_counts);
+            get_centroids_add_cuda(stream, bucket_ids_elt, input_row_elt, bucket_centroids, num_buckets);
+        }
+    }
+
 public:
     CovDeepReuse(const Tensor inputs,
         const Tensor weights,
@@ -285,39 +312,90 @@ public:
 
     auto forward() -> std::vector<Tensor>
     {
-        auto stream = c10::cuda::getCurrentCUDAStream().stream();
+        // 创建CUDA流和事件
+        std::vector<cudaStream_t> streams(NUM_STREAMS);
+        std::vector<cudaEvent_t> events(NUM_STREAMS);
+        for (int i = 0; i < NUM_STREAMS; i++) {
+            cudaStreamCreate(&streams[i]);
+            cudaEventCreate(&events[i]);
+        }
+
         auto int_options = inputs.options().dtype(at::kInt);
         auto float_options = inputs.options();
 
+        // 为每个流分配临时存储
+        std::vector<Tensor> bucket_counts_per_stream;
+        std::vector<Tensor> bucket_centroids_per_stream;
+        std::vector<Tensor> bucket_ids_per_stream;
+
+        for (int i = 0; i < NUM_STREAMS; i++) {
+            bucket_counts_per_stream.push_back(at::zeros({ n_matrices, num_buckets }, int_options));
+            bucket_centroids_per_stream.push_back(at::zeros({ n_matrices, num_buckets, vector_dim }, float_options));
+            bucket_ids_per_stream.push_back(at::zeros({ MIN_BATCH_SIZE, n_matrices, image_size }, int_options));
+        }
+
+        // 最终结果
         Tensor bucket_counts = at::zeros({ n_matrices, num_buckets }, int_options);
         Tensor bucket_centroids = at::zeros({ n_matrices, num_buckets, vector_dim }, float_options);
         Tensor bucket_ids = at::zeros({ batch_size, n_matrices, image_size }, int_options);
 
-        for (auto elt = 0; elt < batch_size; elt++) {
-            Tensor input = inputs.select(0, elt);
+        // 流水线处理
+        for (int64_t batch_start = 0; batch_start < batch_size; batch_start += MIN_BATCH_SIZE * NUM_STREAMS) {
+            for (int64_t stream_idx = 0; stream_idx < NUM_STREAMS; stream_idx++) {
+                int64_t start_idx = batch_start + stream_idx * MIN_BATCH_SIZE;
+                if (start_idx >= batch_size)
+                    continue;
 
-            Tensor input_row = at::zeros({ n_matrices, param_L, image_size }, float_options);
-            im2col_cuda(stream, input, input_row);
+                int64_t end_idx = std::min<int64_t>(start_idx + MIN_BATCH_SIZE, batch_size);
 
-            Tensor hashed_vectors = input_row.transpose(1, 2).matmul(random_vectors);
-            CHECK_SHAPE(hashed_vectors, { n_matrices, image_size, param_H });
+                // 为当前批次分配临时存储
+                Tensor input_row = at::zeros({ end_idx - start_idx, n_matrices, param_L, image_size }, float_options);
+                Tensor hashed_vectors = at::zeros({ end_idx - start_idx, n_matrices, image_size, param_H }, float_options);
 
-            Tensor bucket_ids_elt = bucket_ids.select(0, elt);
-            get_id_count_cuda(stream, hashed_vectors, bucket_ids_elt, bucket_counts);
-            get_centroids_add_cuda(stream, bucket_ids_elt, input_row, bucket_centroids, num_buckets);
+                // 异步处理当前批次
+                process_batch(
+                    streams[stream_idx],
+                    start_idx,
+                    end_idx,
+                    input_row,
+                    hashed_vectors,
+                    bucket_ids_per_stream[stream_idx],
+                    bucket_counts_per_stream[stream_idx],
+                    bucket_centroids_per_stream[stream_idx]);
+
+                // 记录事件
+                cudaEventRecord(events[stream_idx], streams[stream_idx]);
+            }
+
+            // 同步所有流并合并结果
+            for (int64_t stream_idx = 0; stream_idx < NUM_STREAMS; stream_idx++) {
+                cudaEventSynchronize(events[stream_idx]);
+
+                // 合并结果到最终张量
+                bucket_counts += bucket_counts_per_stream[stream_idx];
+                bucket_centroids += bucket_centroids_per_stream[stream_idx];
+
+                int64_t start_idx = batch_start + stream_idx * MIN_BATCH_SIZE;
+                if (start_idx >= batch_size)
+                    continue;
+
+                int64_t end_idx = std::min<int64_t>(start_idx + MIN_BATCH_SIZE, batch_size);
+                bucket_ids.narrow(0, start_idx, end_idx - start_idx).copy_(bucket_ids_per_stream[stream_idx].narrow(0, 0, end_idx - start_idx));
+            }
         }
 
+        // 后续处理保持不变
         Tensor bucket_compact_mapping = at::zeros({ n_matrices, num_buckets }, int_options);
         Tensor bucket_stats = at::zeros(1, int_options);
-        index_bucket_cuda(stream, bucket_counts, bucket_compact_mapping, bucket_stats);
+        index_bucket_cuda(streams[0], bucket_counts, bucket_compact_mapping, bucket_stats);
 
         Tensor bucket_compact_ids = at::zeros({ n_matrices, num_rows }, int_options);
         bucket_ids = bucket_ids.transpose(0, 1).reshape({ n_matrices, num_rows }).contiguous();
-        get_bucket_compact_ids_cuda(stream, bucket_ids, bucket_compact_mapping, bucket_compact_ids);
-        int64_t max_buckets = bucket_stats.item<int64_t>();
+        get_bucket_compact_ids_cuda(streams[0], bucket_ids, bucket_compact_mapping, bucket_compact_ids);
 
+        int64_t max_buckets = bucket_stats.item<int64_t>();
         Tensor compact_bucket_centroids = at::zeros({ n_matrices, max_buckets, vector_dim }, float_options);
-        div_remap_centroids_cuda(stream, bucket_centroids, bucket_compact_mapping, bucket_counts, compact_bucket_centroids);
+        div_remap_centroids_cuda(streams[0], bucket_centroids, bucket_compact_mapping, bucket_counts, compact_bucket_centroids);
 
         Tensor weights_matrices = weights.reshape({ n_output_plane, row_length })
                                       .t()
@@ -326,30 +404,49 @@ public:
         Tensor centroids_after_mm = compact_bucket_centroids.bmm(weights_matrices);
 
         Tensor reconstructed_output = at::zeros({ batch_size, n_output_plane, image_size }, float_options);
-        reconstruct_output_cuda(stream, bucket_compact_ids, centroids_after_mm, reconstructed_output);
+        reconstruct_output_cuda(streams[0], bucket_compact_ids, centroids_after_mm, reconstructed_output);
 
         if (do_bias) {
-            bias_add_cuda(stream, reconstructed_output, bias);
+            bias_add_cuda(streams[0], reconstructed_output, bias);
         }
 
         reconstructed_output = reconstructed_output.view({ batch_size, n_output_plane, output_height, output_width });
 
-        // if (is_training) {
-        //     Tensor bucket_counts_out = at::zeros({ n_matrices, max_buckets }, int_options);
-        //     Tensor bucket_compact_mapping_inv = at::zeros({ n_matrices, max_buckets }, int_options);
-        //     get_bucket_counts_out_cuda(stream, bucket_compact_mapping, bucket_compact_mapping_inv, bucket_counts, bucket_counts_out);
+        // 清理流和事件
+        for (int i = 0; i < NUM_STREAMS; i++) {
+            cudaStreamDestroy(streams[i]);
+            cudaEventDestroy(events[i]);
+        }
 
-        //     input_row = input_row.transpose(1, 2).contiguous();
-        //     return { std::move(reconstructed_output),
-        //         std::move(bucket_centroids),
-        //         std::move(bucket_compact_ids),
-        //         std::move(bucket_ids),
-        //         std::move(bucket_counts_out),
-        //         std::move(bucket_compact_mapping),
-        //         std::move(bucket_compact_mapping_inv),
-        //         std::move(input_row) };
-        // }
+        if (is_training) {
+            // 为训练模式准备额外的返回值
+            Tensor bucket_counts_out = at::zeros({ n_matrices, max_buckets }, int_options);
+            Tensor bucket_compact_mapping_inv = at::zeros({ n_matrices, max_buckets }, int_options);
+            get_bucket_counts_out_cuda(streams[0], bucket_compact_mapping, bucket_compact_mapping_inv, bucket_counts, bucket_counts_out);
 
+            // 重新组织input_row以便反向传播
+            Tensor input_row = at::zeros({ batch_size, n_matrices, param_L, image_size }, float_options);
+            for (int64_t batch_start = 0; batch_start < batch_size; batch_start += MIN_BATCH_SIZE) {
+                int64_t end_idx = std::min<int64_t>(batch_start + MIN_BATCH_SIZE, batch_size);
+                Tensor input_batch = inputs.narrow(0, batch_start, end_idx - batch_start);
+                Tensor input_row_batch = input_row.narrow(0, batch_start, end_idx - batch_start);
+                im2col_cuda(streams[0], input_batch, input_row_batch);
+            }
+            input_row = input_row.transpose(1, 2).contiguous();
+
+            return {
+                std::move(reconstructed_output),
+                std::move(bucket_centroids),
+                std::move(bucket_compact_ids),
+                std::move(bucket_ids),
+                std::move(bucket_counts_out),
+                std::move(bucket_compact_mapping),
+                std::move(bucket_compact_mapping_inv),
+                std::move(input_row)
+            };
+        }
+
+        // 推理模式只返回输出
         return { std::move(reconstructed_output) };
     }
 };

@@ -39,6 +39,7 @@ parser.add_argument('--H', type=str, default=[1]*16, action=utils.SplitArgs,
 parser.add_argument('--gpu', type=int, default=0, help='gpu device id')
 parser.add_argument('--model_name', type=str,
                     default='autoencoder_trec', help='name of model')
+parser.add_argument('--save-checkpoints', type=bool, default=False, help='save checkpoints')
 
 def test(net, testloader):
     net.eval()
@@ -187,7 +188,7 @@ def main():
         metrics = test(net, testloader)
         
         # Save best model based on PSNR and SSIM
-        if metrics['psnr'] > best_metrics['psnr'] or metrics['ssim'] > best_metrics['ssim']:
+        if args.save_checkpoints and (metrics['psnr'] > best_metrics['psnr'] or metrics['ssim'] > best_metrics['ssim']):
             best_metrics = metrics
             logging.info(f'New best model with PSNR: {metrics["psnr"]:.2f}dB, SSIM: {metrics["ssim"]:.4f}')
             torch.save({
@@ -198,7 +199,7 @@ def main():
             }, os.path.join(args.checkpoint_path, 'best_model.pt'))
         
         # Regular checkpoint saving
-        if (epoch + 1) % 10 == 0:
+        if args.save_checkpoints and (epoch + 1) % 10 == 0:
             checkpoint_path = os.path.join(args.checkpoint_path, f'checkpoint_e{epoch}.pt')
             torch.save({
                 'epoch': epoch,

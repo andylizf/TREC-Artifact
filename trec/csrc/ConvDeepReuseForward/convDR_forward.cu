@@ -312,6 +312,10 @@ public:
 
     auto forward() -> std::vector<Tensor>
     {
+        double TIMER_t, first_t; // 添加计时器变量
+        TIMER_START; // 开始计时
+        first_t = TIMER_t;
+
         // 创建CUDA流和事件
         std::vector<cudaStream_t> streams(NUM_STREAMS);
         std::vector<cudaEvent_t> events(NUM_STREAMS);
@@ -319,6 +323,7 @@ public:
             cudaStreamCreate(&streams[i]);
             cudaEventCreate(&events[i]);
         }
+        TIMER_LAP("Stream initialization");
 
         auto int_options = inputs.options().dtype(at::kInt);
         auto float_options = inputs.options();
@@ -333,6 +338,7 @@ public:
             bucket_centroids_per_stream.push_back(at::zeros({ n_matrices, num_buckets, vector_dim }, float_options));
             bucket_ids_per_stream.push_back(at::zeros({ MIN_BATCH_SIZE, n_matrices, image_size }, int_options));
         }
+        TIMER_LAP("Tensor allocation");
 
         // 最终结果
         Tensor bucket_counts = at::zeros({ n_matrices, num_buckets }, int_options);
@@ -341,6 +347,8 @@ public:
 
         // 流水线处理
         for (int64_t batch_start = 0; batch_start < batch_size; batch_start += MIN_BATCH_SIZE * NUM_STREAMS) {
+            TIMER_LAP("Batch start");
+
             for (int64_t stream_idx = 0; stream_idx < NUM_STREAMS; stream_idx++) {
                 int64_t start_idx = batch_start + stream_idx * MIN_BATCH_SIZE;
                 if (start_idx >= batch_size)
@@ -366,6 +374,7 @@ public:
                 // 记录事件
                 cudaEventRecord(events[stream_idx], streams[stream_idx]);
             }
+            TIMER_LAP("Batch processing");
 
             // 同步所有流并合并结果
             for (int64_t stream_idx = 0; stream_idx < NUM_STREAMS; stream_idx++) {
@@ -382,12 +391,14 @@ public:
                 int64_t end_idx = std::min<int64_t>(start_idx + MIN_BATCH_SIZE, batch_size);
                 bucket_ids.narrow(0, start_idx, end_idx - start_idx).copy_(bucket_ids_per_stream[stream_idx].narrow(0, 0, end_idx - start_idx));
             }
+            TIMER_LAP("Batch sync and merge");
         }
 
-        // 后续处理保持不变
+        // 后续处理
         Tensor bucket_compact_mapping = at::zeros({ n_matrices, num_buckets }, int_options);
         Tensor bucket_stats = at::zeros(1, int_options);
         index_bucket_cuda(streams[0], bucket_counts, bucket_compact_mapping, bucket_stats);
+        TIMER_LAP("Index bucket");
 
         Tensor bucket_compact_ids = at::zeros({ n_matrices, num_rows }, int_options);
         bucket_ids = bucket_ids.transpose(0, 1).reshape({ n_matrices, num_rows }).contiguous();
@@ -411,20 +422,23 @@ public:
         }
 
         reconstructed_output = reconstructed_output.view({ batch_size, n_output_plane, output_height, output_width });
+        TIMER_LAP("Output reshape");
 
         // 清理流和事件
         for (int i = 0; i < NUM_STREAMS; i++) {
             cudaStreamDestroy(streams[i]);
             cudaEventDestroy(events[i]);
         }
+        TIMER_LAP("Cleanup");
 
         if (is_training) {
-            // 为训练模式准备额外的返回值
+            // 训练模式额外处理
             Tensor bucket_counts_out = at::zeros({ n_matrices, max_buckets }, int_options);
             Tensor bucket_compact_mapping_inv = at::zeros({ n_matrices, max_buckets }, int_options);
             get_bucket_counts_out_cuda(streams[0], bucket_compact_mapping, bucket_compact_mapping_inv, bucket_counts, bucket_counts_out);
+            TIMER_LAP("Training mode extra processing");
 
-            // 重新组织input_row以便反向传播
+            // 重新组织input_row
             Tensor input_row = at::zeros({ batch_size, n_matrices, param_L, image_size }, float_options);
             for (int64_t batch_start = 0; batch_start < batch_size; batch_start += MIN_BATCH_SIZE) {
                 int64_t end_idx = std::min<int64_t>(batch_start + MIN_BATCH_SIZE, batch_size);
@@ -432,7 +446,7 @@ public:
                 Tensor input_row_batch = input_row.narrow(0, batch_start, end_idx - batch_start);
                 im2col_cuda(streams[0], input_batch, input_row_batch);
             }
-            input_row = input_row.transpose(1, 2).contiguous();
+            TIMER_LAP("Input row reorganization");
 
             return {
                 std::move(reconstructed_output),
@@ -446,7 +460,9 @@ public:
             };
         }
 
-        // 推理模式只返回输出
+        torch::cuda::synchronize();
+        cudaDeviceSynchronize();
+        printf("Total forward pass: %f\n", timestamp() - first_t);
         return { std::move(reconstructed_output) };
     }
 };

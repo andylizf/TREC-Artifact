@@ -16,7 +16,8 @@ def parse_timing_log(file):
         'matrix multiplication': [],
         'reconstruct_output_cuda': [],
         'bias_add_cuda': [],
-        'get_bucket_counts_out_cuda': []
+        'get_bucket_counts_out_cuda': [],
+        'Total forward pass': []
     }
     
     # Read from file or stdin
@@ -39,7 +40,8 @@ def parse_timing_log(file):
             times = np.array(times)
             mean_time = np.mean(times) * 1000  # Convert to ms
             std_time = np.std(times) * 1000
-            total_time += mean_time
+            if name != 'Total forward pass':
+                total_time += mean_time
             print(f"{name:25s}: {mean_time:8.3f} ± {std_time:6.3f} ms")
     
     print("-" * 50)

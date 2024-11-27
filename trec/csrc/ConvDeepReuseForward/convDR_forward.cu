@@ -330,8 +330,9 @@ public:
 
     auto forward() -> std::vector<Tensor>
     {
-        double TIMER_t; // 添加计时器变量
+        double TIMER_t, START_t;
         TIMER_START; // 开始计时
+        START_t = TIMER_t;
 
         Tensor input_row = at::zeros({ n_matrices, param_L, num_rows }, inputs.options());
         Tensor bucket_ids = at::zeros({ n_matrices, num_rows }, inputs.options().dtype(ID_DATATYPE_AT));
@@ -392,6 +393,12 @@ public:
             get_bucket_counts_out_cuda(stream, bucket_compact_mapping, bucket_compact_mapping_inv, bucket_counts, bucket_counts_out);
             TIMER_LAP("get_bucket_counts_out_cuda");
 
+#ifndef NDEBUG
+            torch::cuda::synchronize();
+            cudaDeviceSynchronize();
+            printf("Total forward pass: %f\n", timestamp() - START_t);
+#endif
+
             return { std::move(reconstructed_output),
                 std::move(bucket_centroids),
                 std::move(bucket_compact_ids),
@@ -401,7 +408,13 @@ public:
                 std::move(bucket_compact_mapping_inv),
                 std::move(input_row) };
         }
-        TIMER_LAP("Total time");
+
+#ifndef NDEBUG
+        torch::cuda::synchronize();
+        cudaDeviceSynchronize();
+        printf("Total forward pass: %f\n", timestamp() - START_t);
+#endif
+
         return { std::move(reconstructed_output) };
     }
 };

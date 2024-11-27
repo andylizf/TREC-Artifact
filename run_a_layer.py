@@ -56,9 +56,9 @@ if __name__ == "__main__":
     conv_trec, inputs = profile_conv_trec()
     
     # 保存输入和模型参数以供后续分析
-    torch.save({
-        'inputs': inputs.cpu(),
-        'weight': conv_trec.weight.cpu(),
-        'bias': conv_trec.bias.cpu() if conv_trec.bias is not None else None,
-        'random_vectors': conv_trec.random_vectors.cpu(),
-    }, 'conv_trec_profile_data.pt') 
+    # torch.save({
+    #     'inputs': inputs.cpu(),
+    #     'weight': conv_trec.weight.cpu(),
+    #     'bias': conv_trec.bias.cpu() if conv_trec.bias is not None else None,
+    #     'random_vectors': conv_trec.random_vectors.cpu(),
+    # }, 'conv_trec_profile_data.pt') 

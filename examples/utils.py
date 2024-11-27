@@ -58,4 +58,4 @@ def get_network(args) -> torch.nn.Module:
         from models.autoencoder import AutoencoderTREC
         return AutoencoderTREC(params_L=args.L, params_H=args.H, trec=args.trec)
     else:
-        raise ValueError(f'Unknown model name: {args.model_name}')
+        raise NotImplementedError(f'Model {args.model_name} not supported')

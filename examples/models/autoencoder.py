@@ -120,39 +120,24 @@ class AutoencoderTREC(nn.Module):
 
         # Final convolution
         self.final_conv = nn.Conv2d(base_ch, 3, 3, padding=1)
-        
-        # For classification output (to match train_model.py expectations)
-        self.num_classes = 10
-        # Calculate the correct input size for classifier
-        # After 4 encoder blocks with stride 2, the spatial dimensions are reduced by 2^4 = 16
-        # For CIFAR10 (32x32), final encoded size is 2x2
-        # Final channels = base_ch * ch_mult[-1] = 64 * 8 = 512
-        encoded_size = 2 * 2  # 32/16 = 2
-        final_channels = base_ch * ch_mult[-1]  # 64 * 8 = 512
-        self.classifier = nn.Linear(final_channels * encoded_size, self.num_classes)
 
-    def forward(self, x):
-        # Encode
-        features = []
+    def encode(self, x):
+        """Encode input to latent representation"""
         for block in self.encoder_blocks:
             x = block(x)
-            features.append(x)
-        
-        # Store encoded features for classification
-        encoded = x
-        
-        # Decode
+        return x
+    
+    def decode(self, x):
+        """Decode latent representation to reconstruction"""
         for block in self.decoder_blocks:
             x = block(x)
-        
-        x = torch.tanh(self.final_conv(x))
-        
-        # Add classification head to match train_model.py expectations
-        # Global average pooling and classify
-        cls_features = encoded.view(encoded.size(0), -1)  # Flatten the encoded features
-        cls_output = self.classifier(cls_features)
-        
-        return cls_output  # Return classification output to match train_model.py
+        return torch.tanh(self.final_conv(x))
+    
+    def forward(self, x):
+        """Full forward pass: encode then decode"""
+        x = self.encode(x)
+        x = self.decode(x)
+        return x
 
     def get_last_layer(self):
         return self.final_conv.weight

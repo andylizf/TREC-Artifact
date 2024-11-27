@@ -58,6 +58,9 @@ __global__ void im2row_DRbatch_cuda_kernel(
     const int vector_dim,
     at::PackedTensorAccessor32<scalar_t, 5, at::RestrictPtrTraits> data_row) // output
 {
+    // Use registers for frequently accessed values
+    __shared__ scalar_t tile[32][33]; // 33 to avoid bank conflicts
+
     CUDA_1D_KERNEL_LOOP(index, batch_size * channels * output_height * output_width)
     {
         const int w_out = index % output_width;
@@ -65,24 +68,37 @@ __global__ void im2row_DRbatch_cuda_kernel(
         const int channel_in = (index / output_width / output_height) % channels;
         const int batch_id = index / output_width / output_height / channels;
 
+        // Pre-compute base indices
         const int h_in = h_out * stride_height - pad_height;
         const int w_in = w_out * stride_width - pad_width;
 
-        for (int i = 0; i < kernel_height; ++i) {
-            for (int j = 0; j < kernel_width; ++j) {
-                const int h = h_in + i;
-                const int w = w_in + j;
+// Load input tile into shared memory
+#pragma unroll
+        for (int i = threadIdx.x; i < kernel_height * kernel_width; i += blockDim.x) {
+            const int kh = i / kernel_width;
+            const int kw = i % kernel_width;
+            const int h = h_in + kh;
+            const int w = w_in + kw;
 
+            tile[kh][kw] = (h >= 0 && w >= 0 && h < input_height && w < input_width)
+                ? data_im[batch_id][channel_in][h][w]
+                : scalar_t(0);
+        }
+        __syncthreads();
+
+// Process kernel elements with better memory coalescing
+#pragma unroll
+        for (int i = 0; i < kernel_height; ++i) {
+#pragma unroll
+            for (int j = 0; j < kernel_width; ++j) {
                 const int row_offset = (channel_in * kernel_height + i) * kernel_width + j;
                 const int matrix_offset = row_offset % vector_dim;
                 const int matrix_id = row_offset / vector_dim;
 
-                data_row[matrix_id][matrix_offset][batch_id][h_out][w_out]
-                    = (h >= 0 && w >= 0 && h < input_height && w < input_width)
-                    ? data_im[batch_id][channel_in][h][w]
-                    : static_cast<scalar_t>(0);
+                data_row[matrix_id][matrix_offset][batch_id][h_out][w_out] = tile[i][j];
             }
         }
+        __syncthreads();
     }
 }
 

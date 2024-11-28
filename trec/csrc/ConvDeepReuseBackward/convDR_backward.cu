@@ -58,8 +58,23 @@ private:
         const at::Tensor& gradOutput_centroids // {n_matrices, max_buckets, nOutputPlane}
     ) const
     {
-        at::Tensor gradWeights = torch::einsum("ikj,ikl->lij", { inputCentroids, gradOutput_centroids })
-                                     .reshape(weights_sizes);
+        // 计算实际需要的元素数
+        int64_t actual_elements = nInputPlane * kernel_height * kernel_width;
+
+        // 执行 einsum
+        at::Tensor temp = torch::einsum("ikj,ikl->lij", { inputCentroids, gradOutput_centroids });
+
+        // 处理填充的情况
+        if (param_L * n_matrices > actual_elements) {
+            // 只取需要的部分
+            temp = temp.reshape({ param_L * n_matrices, nOutputPlane })
+                       .narrow(0, 0, actual_elements)
+                       .reshape(weights_sizes);
+        } else {
+            temp = temp.reshape(weights_sizes);
+        }
+
+        at::Tensor gradWeights = temp;
         // ? need to contiguous?
 
         // at::Tensor inputCentroids_col = inputCentroids.transpose(1, 2).contiguous();
@@ -80,9 +95,22 @@ private:
     )
     {
         at::Tensor gradInput_rows = at::zeros({ num_rows, n_matrices * param_L }, gradOutput_centroids.options());
-        // at::Tensor weights_matrices = weights.reshape({ nOutputPlane, n_matrices, param_L }).transpose(0, 1).contiguous();
-        // at::Tensor gradInput_centroids = gradOutput_centroids.bmm(weights_matrices);
-        at::Tensor weights_matrices = weights.reshape({ nOutputPlane, n_matrices, param_L });
+
+        // 计算实际需要的元素数
+        int64_t actual_elements = nInputPlane * kernel_height * kernel_width;
+        int64_t padded_elements = n_matrices * param_L;
+
+        // 创建填充后的权重张量
+        at::Tensor weights_padded;
+        if (padded_elements > actual_elements) {
+            weights_padded = at::zeros({ nOutputPlane, padded_elements }, weights.options());
+            weights_padded.narrow(1, 0, actual_elements).copy_(weights.reshape({ nOutputPlane, -1 }));
+        } else {
+            weights_padded = weights.reshape({ nOutputPlane, -1 });
+        }
+
+        // Reshape 成所需的形状
+        at::Tensor weights_matrices = weights_padded.reshape({ nOutputPlane, n_matrices, param_L });
         at::Tensor gradInput_centroids = at::einsum("bij,jbk->bik", { gradOutput_centroids, weights_matrices });
 
         reconstruct_gradInputRows_cuda(stream, vector_index, gradInput_centroids, gradInput_rows);

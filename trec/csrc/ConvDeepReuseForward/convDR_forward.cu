@@ -16,7 +16,7 @@
 
 using at::Tensor;
 
-constexpr std::size_t ceil_div(std::size_t num, std::size_t denom)
+constexpr std::int64_t ceil_div(std::int64_t num, std::int64_t denom)
 {
     return (num + denom - 1) / denom;
 }
@@ -35,6 +35,8 @@ private:
     bool is_training;
 
     int64_t kernel_length;
+    int64_t original_row_length; // 原始长度
+    int64_t padded_row_length; // 填充后的长度
     int64_t row_length;
     int64_t n_matrices;
     int64_t output_height;
@@ -49,8 +51,7 @@ private:
         const Tensor input,
         Tensor output)
     {
-        int64_t num_kernels = num_rows * row_length / kernel_length;
-        assert(num_kernels == batch_size * n_input_plane * output_height * output_width);
+        int64_t num_kernels = batch_size * n_input_plane * output_height * output_width;
 
         output = output.view({ n_matrices, param_L, batch_size, output_height, output_width });
 
@@ -72,6 +73,7 @@ private:
                     output_height,
                     output_width,
                     vector_dim,
+                    original_row_length,
                     output.packed_accessor32<scalar_t, 5, torch::RestrictPtrTraits>());
         }));
         AT_CUDA_CHECK(cudaGetLastError());
@@ -306,8 +308,10 @@ public:
         , param_H(param_H)
         , is_training(is_training)
         , kernel_length(kernel_height * kernel_width)
-        , row_length(n_input_plane * kernel_length)
-        , n_matrices(row_length / param_L)
+        , original_row_length(n_input_plane * kernel_length)
+        , padded_row_length(ceil_div(original_row_length, param_L) * param_L)
+        , row_length(padded_row_length)
+        , n_matrices(padded_row_length / param_L)
         , output_height((input_height + 2 * pad_height - kernel_height) / stride_height + 1)
         , output_width((input_width + 2 * pad_width - kernel_width) / stride_width + 1)
         , image_size(output_height * output_width)
@@ -322,16 +326,15 @@ public:
         TORCH_CHECK(param_H <= 32, "Paramter H must <= 32"); // hash value: int32_t
         TORCH_CHECK(n_input_plane == weights.size(1), "Inconsistent number of input channels and weight channels");
 
-        TORCH_CHECK(row_length % param_L == 0, "Parameter L must be the factor of ", row_length);
-
         TORCH_CHECK(param_L == random_vectors.size(0), "Inconsistent parameter L and random vectors");
         TORCH_CHECK(param_H == random_vectors.size(1), "Inconsistent parameter H and random vectors");
     }
 
     auto forward() -> std::vector<Tensor>
     {
-        double TIMER_t; // 添加计时器变量
+        double TIMER_t, START_t;
         TIMER_START; // 开始计时
+        START_t = TIMER_t;
 
         Tensor input_row = at::zeros({ n_matrices, param_L, num_rows }, inputs.options());
         Tensor bucket_ids = at::zeros({ n_matrices, num_rows }, inputs.options().dtype(ID_DATATYPE_AT));
@@ -370,9 +373,19 @@ public:
         div_remap_centroids_cuda(stream, bucket_centroids, bucket_compact_mapping, bucket_counts);
         TIMER_LAP("div_remap_centroids_cuda");
 
-        Tensor weights_matrices = weights.reshape({ n_output_plane, row_length })
-                                      .t()
-                                      .reshape({ n_matrices, param_L, n_output_plane });
+        Tensor weights_flat = weights.reshape({ n_output_plane, original_row_length });
+        Tensor weights_padded;
+
+        if (original_row_length == padded_row_length) {
+            weights_padded = weights_flat;
+        } else {
+            weights_padded = at::zeros({ n_output_plane, padded_row_length }, weights.options());
+            weights_padded.narrow(1, 0, original_row_length).copy_(weights_flat);
+        }
+
+        Tensor weights_matrices = weights_padded.t() // [padded_row_length, n_output_plane]
+                                      .reshape({ n_matrices, param_L, n_output_plane }); // [n_matrices, param_L, n_output_plane]
+
         Tensor centroids_after_mm = bucket_centroids.bmm(weights_matrices);
         TIMER_LAP("matrix multiplication");
 
@@ -392,6 +405,12 @@ public:
             get_bucket_counts_out_cuda(stream, bucket_compact_mapping, bucket_compact_mapping_inv, bucket_counts, bucket_counts_out);
             TIMER_LAP("get_bucket_counts_out_cuda");
 
+#ifndef NDEBUG
+            torch::cuda::synchronize();
+            cudaDeviceSynchronize();
+            printf("Total forward pass: %f\n", timestamp() - START_t);
+#endif
+
             return { std::move(reconstructed_output),
                 std::move(bucket_centroids),
                 std::move(bucket_compact_ids),
@@ -401,7 +420,13 @@ public:
                 std::move(bucket_compact_mapping_inv),
                 std::move(input_row) };
         }
-        TIMER_LAP("Total time");
+
+#ifndef NDEBUG
+        torch::cuda::synchronize();
+        cudaDeviceSynchronize();
+        printf("Total forward pass: %f\n", timestamp() - START_t);
+#endif
+
         return { std::move(reconstructed_output) };
     }
 };

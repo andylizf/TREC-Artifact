@@ -56,6 +56,7 @@ __global__ void im2row_DRbatch_cuda_kernel(
     const int output_height,
     const int output_width,
     const int vector_dim,
+    const int original_row_length,
     at::PackedTensorAccessor32<scalar_t, 5, at::RestrictPtrTraits> data_row) // output
 {
     // Use registers for frequently accessed values
@@ -92,10 +93,13 @@ __global__ void im2row_DRbatch_cuda_kernel(
 #pragma unroll
             for (int j = 0; j < kernel_width; ++j) {
                 const int row_offset = (channel_in * kernel_height + i) * kernel_width + j;
-                const int matrix_offset = row_offset % vector_dim;
-                const int matrix_id = row_offset / vector_dim;
+                if (row_offset < original_row_length) {
+                    const int matrix_offset = row_offset % vector_dim;
+                    const int matrix_id = row_offset / vector_dim;
 
-                data_row[matrix_id][matrix_offset][batch_id][h_out][w_out] = tile[i][j];
+                    data_row[matrix_id][matrix_offset][batch_id][h_out][w_out]
+                        = tile[i][j];
+                }
             }
         }
         __syncthreads();

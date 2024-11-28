@@ -374,9 +374,14 @@ public:
         TIMER_LAP("div_remap_centroids_cuda");
 
         Tensor weights_flat = weights.reshape({ n_output_plane, original_row_length });
+        Tensor weights_padded;
 
-        Tensor weights_padded = at::zeros({ n_output_plane, padded_row_length }, weights.options());
-        weights_padded.narrow(1, 0, original_row_length).copy_(weights_flat);
+        if (original_row_length == padded_row_length) {
+            weights_padded = weights_flat;
+        } else {
+            weights_padded = at::zeros({ n_output_plane, padded_row_length }, weights.options());
+            weights_padded.narrow(1, 0, original_row_length).copy_(weights_flat);
+        }
 
         Tensor weights_matrices = weights_padded.t() // [padded_row_length, n_output_plane]
                                       .reshape({ n_matrices, param_L, n_output_plane }); // [n_matrices, param_L, n_output_plane]

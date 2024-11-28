@@ -44,6 +44,7 @@ class Conv2d_TREC_Function(torch.autograd.Function):
             _, inputCentroids, vector_index, vector_ids, buckets_count, buckets_index, buckets_index_inv, input_row = outputs
             variables = [input_row, inputCentroids, vector_index, vector_ids,
                          buckets_count, buckets_index, buckets_index_inv, random_vectors, weights]
+            assert input_row.is_contiguous()
             ctx.save_for_backward(*variables)
             ctx.mark_non_differentiable(
                 inputCentroids, vector_index, vector_ids, buckets_count, buckets_index, buckets_index_inv)
@@ -56,10 +57,12 @@ class Conv2d_TREC_Function(torch.autograd.Function):
             ctx.do_bias = do_bias
             ctx.input_height = inputs.size()[2]
             ctx.input_width = inputs.size()[3]
+        assert outputs[0].is_contiguous()
         return outputs[0]  # used for gradient computation
 
     @staticmethod
     def backward(ctx, gradOutput):
+        assert gradOutput.is_contiguous()
         input_row, inputCentroids, vector_index, vector_ids, buckets_count, buckets_index, buckets_index_inv, random_vectors, weights = ctx.saved_tensors
         stride_height, stride_width = ctx.stride
         padding_height, padding_width = ctx.padding

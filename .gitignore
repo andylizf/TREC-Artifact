@@ -180,3 +180,5 @@ examples/*.txt
 compiled_cache.db
 
 examples/EXP_baseline
+
+!examples/densenet_train_*.log

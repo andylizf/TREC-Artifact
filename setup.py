@@ -106,9 +106,11 @@ setup(
     version="0.0.1",
     packages=find_packages(),
     ext_modules=get_extensions(),
-    install_requires=["torch"],
+    install_requires=[],
+    setup_requires=["torch"],
     description="spatially efficient new form of convolution",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     cmdclass={"build_ext": MyBuildExtension},
+    zip_safe=False,
 )

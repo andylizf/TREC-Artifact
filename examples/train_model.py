@@ -136,9 +136,12 @@ def main():
             inputs = inputs.cuda()
             labels = labels.cuda()
             optimizer.zero_grad()
+            print("===  execute forward  ===")
             outputs = net(inputs)
             loss = criterion(outputs, labels)
+            print("===  execute backward  ===")
             loss.backward()
+            print("=== end backward ===")
             nn.utils.clip_grad_norm_(net.parameters(), args.grad_clip)
             l = loss.detach().item()
             running_loss += l

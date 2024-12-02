@@ -1,0 +1,2 @@
+2024-12-01 20:59:48,293 gpu device = 0
+2024-12-01 20:59:48,293 args = Namespace(checkpoint_path='EXP_L4/ResNet18-20241201-205947', dataset_path='data', model_name='ResNet18', epochs=10, batch_size=128, learning_rate=0.1, momentum=0.9, weight_decay=0.0001, grad_clip=5, step=15, trec=[1, 1], L=[4, 4], H=[12, 12], bp_trec=[0, 0, 0, 0], bp_L=[1, 1, 1, 1], bp_H=[1, 1, 1, 1], gpu=0, depth=40, k=12)

@@ -1,0 +1,86 @@
+Experiment dir : EXP_L25
+Experiment dir : EXP_L25/CifarNet-20241202-004354
+12/02 12:43:54 AM gpu device = 0
+12/02 12:43:54 AM args = Namespace(checkpoint_path='EXP_L25/CifarNet-20241202-004354', dataset_path='data', model_name='CifarNet', epochs=10, batch_size=128, learning_rate=0.1, momentum=0.9, weight_decay=0.0001, grad_clip=5, step=15, trec=[0, 1], L=[25, 25], H=[8, 8], bp_trec=[0, 0, 0, 0], bp_L=[1, 1, 1, 1], bp_H=[1, 1, 1, 1], gpu=0, depth=40, k=12)
+Files already downloaded and verified
+Files already downloaded and verified
+12/02 12:44:00 AM [epoch=0, batch=  100] loss: 2.095
+12/02 12:44:04 AM [epoch=0, batch=  200] loss: 2.013
+12/02 12:44:08 AM [epoch=0, batch=  300] loss: 1.924
+Training time (sec): 16.384062582001206
+Epoch 0 finished
+12/02 12:44:14 AM Inference time (sec): 2.402397731999372
+12/02 12:44:14 AM Accuracy of the network on the 10000 test images: 0.3526
+12/02 12:44:14 AM Saving currently best model.. to EXP_L25/CifarNet-20241202-004354/weights.pt
+12/02 12:44:18 AM [epoch=1, batch=  100] loss: 1.851
+12/02 12:44:22 AM [epoch=1, batch=  200] loss: 1.832
+12/02 12:44:27 AM [epoch=1, batch=  300] loss: 1.812
+Training time (sec): 16.028693526999632
+Epoch 1 finished
+12/02 12:44:33 AM Inference time (sec): 2.457460445999459
+12/02 12:44:33 AM Accuracy of the network on the 10000 test images: 0.3825
+12/02 12:44:33 AM Saving currently best model.. to EXP_L25/CifarNet-20241202-004354/weights.pt
+12/02 12:44:37 AM [epoch=2, batch=  100] loss: 1.779
+12/02 12:44:41 AM [epoch=2, batch=  200] loss: 1.800
+12/02 12:44:45 AM [epoch=2, batch=  300] loss: 1.799
+Training time (sec): 16.001328756001385
+Epoch 2 finished
+12/02 12:44:51 AM Inference time (sec): 2.411351213000671
+12/02 12:44:51 AM Accuracy of the network on the 10000 test images: 0.3897
+12/02 12:44:51 AM Saving currently best model.. to EXP_L25/CifarNet-20241202-004354/weights.pt
+12/02 12:44:55 AM [epoch=3, batch=  100] loss: 1.774
+12/02 12:44:59 AM [epoch=3, batch=  200] loss: 1.761
+12/02 12:45:03 AM [epoch=3, batch=  300] loss: 1.787
+Training time (sec): 15.818346612000823
+Epoch 3 finished
+12/02 12:45:09 AM Inference time (sec): 2.4095092569987173
+12/02 12:45:09 AM Accuracy of the network on the 10000 test images: 0.3876
+12/02 12:45:13 AM [epoch=4, batch=  100] loss: 1.747
+12/02 12:45:17 AM [epoch=4, batch=  200] loss: 1.778
+12/02 12:45:21 AM [epoch=4, batch=  300] loss: 1.781
+Training time (sec): 15.835312261000581
+Epoch 4 finished
+12/02 12:45:28 AM Inference time (sec): 2.390990795998732
+12/02 12:45:28 AM Accuracy of the network on the 10000 test images: 0.3942
+12/02 12:45:28 AM Saving currently best model.. to EXP_L25/CifarNet-20241202-004354/weights.pt
+12/02 12:45:32 AM [epoch=5, batch=  100] loss: 1.745
+12/02 12:45:36 AM [epoch=5, batch=  200] loss: 1.761
+12/02 12:45:40 AM [epoch=5, batch=  300] loss: 1.765
+Training time (sec): 15.940507586999956
+Epoch 5 finished
+12/02 12:45:46 AM Inference time (sec): 2.4951382810013456
+12/02 12:45:46 AM Accuracy of the network on the 10000 test images: 0.375
+12/02 12:45:50 AM [epoch=6, batch=  100] loss: 1.773
+12/02 12:45:54 AM [epoch=6, batch=  200] loss: 1.762
+12/02 12:45:58 AM [epoch=6, batch=  300] loss: 1.768
+Training time (sec): 15.839351769000132
+Epoch 6 finished
+12/02 12:46:04 AM Inference time (sec): 2.486491992998708
+12/02 12:46:04 AM Accuracy of the network on the 10000 test images: 0.3943
+12/02 12:46:04 AM Saving currently best model.. to EXP_L25/CifarNet-20241202-004354/weights.pt
+12/02 12:46:08 AM [epoch=7, batch=  100] loss: 1.772
+12/02 12:46:13 AM [epoch=7, batch=  200] loss: 1.754
+12/02 12:46:17 AM [epoch=7, batch=  300] loss: 1.753
+Training time (sec): 15.903074214998924
+Epoch 7 finished
+12/02 12:46:23 AM Inference time (sec): 2.4182966980006313
+12/02 12:46:23 AM Accuracy of the network on the 10000 test images: 0.3862
+12/02 12:46:27 AM [epoch=8, batch=  100] loss: 1.750
+12/02 12:46:31 AM [epoch=8, batch=  200] loss: 1.738
+12/02 12:46:35 AM [epoch=8, batch=  300] loss: 1.774
+Training time (sec): 15.877642032999574
+Epoch 8 finished
+12/02 12:46:41 AM Inference time (sec): 2.4279741259997536
+12/02 12:46:41 AM Accuracy of the network on the 10000 test images: 0.4004
+12/02 12:46:41 AM Saving currently best model.. to EXP_L25/CifarNet-20241202-004354/weights.pt
+12/02 12:46:45 AM [epoch=9, batch=  100] loss: 1.736
+12/02 12:46:49 AM [epoch=9, batch=  200] loss: 1.759
+12/02 12:46:53 AM [epoch=9, batch=  300] loss: 1.749
+Training time (sec): 15.944377518999318
+Epoch 9 finished
+12/02 12:46:59 AM Inference time (sec): 2.4483935150001344
+12/02 12:46:59 AM Accuracy of the network on the 10000 test images: 0.398
+12/02 12:46:59 AM Saving model in the 100th epoch.. to EXP_L25/CifarNet-20241202-004354/weights_100.pt
+12/02 12:47:02 AM Inference time (sec): 2.4195803130005515
+12/02 12:47:02 AM Accuracy of the network on the 10000 test images: 0.3975
+12/02 12:47:02 AM Finished Training

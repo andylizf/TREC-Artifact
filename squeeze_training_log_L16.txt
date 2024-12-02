@@ -1,0 +1,376 @@
+Experiment dir : EXP_squeeze_L16
+Experiment dir : EXP_squeeze_L16/SqueezeNet-20241202-081329
+12/02 08:13:29 AM gpu device = 0
+12/02 08:13:29 AM args = Namespace(checkpoint_path='EXP_squeeze_L16/SqueezeNet-20241202-081329', dataset_path='data', model_name='SqueezeNet', epochs=50, batch_size=128, learning_rate=0.001, momentum=0.95, weight_decay=0.0001, grad_clip=5.0, step=15.0, trec=[0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], L=[9, 96, 8, 16, 64, 8, 72, 64, 16, 144, 128, 4, 144, 32, 6, 54, 48, 6, 216, 8, 4, 288, 256, 8, 288, 4], H=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5], bp_trec=[0, 0, 0, 0], bp_L=[1, 1, 1, 1], bp_H=[1, 1, 1, 1], gpu=0, depth=40, k=12)
+Files already downloaded and verified
+Files already downloaded and verified
+12/02 08:13:37 AM [epoch=0, batch=  100] loss: 2.101
+12/02 08:13:42 AM [epoch=0, batch=  200] loss: 1.747
+12/02 08:13:47 AM [epoch=0, batch=  300] loss: 1.585
+Training time (sec): 20.50719078300608
+Epoch 0 finished
+12/02 08:13:54 AM Inference time (sec): 2.816437389999919
+12/02 08:13:54 AM Accuracy of the network on the 10000 test images: 0.4691
+12/02 08:13:54 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:13:59 AM [epoch=1, batch=  100] loss: 1.385
+12/02 08:14:04 AM [epoch=1, batch=  200] loss: 1.325
+12/02 08:14:09 AM [epoch=1, batch=  300] loss: 1.256
+Training time (sec): 19.37106843100628
+Epoch 1 finished
+12/02 08:14:17 AM Inference time (sec): 2.9002937840050436
+12/02 08:14:17 AM Accuracy of the network on the 10000 test images: 0.5692
+12/02 08:14:17 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:14:22 AM [epoch=2, batch=  100] loss: 1.142
+12/02 08:14:26 AM [epoch=2, batch=  200] loss: 1.120
+12/02 08:14:31 AM [epoch=2, batch=  300] loss: 1.087
+Training time (sec): 19.218599644998903
+Epoch 2 finished
+12/02 08:14:39 AM Inference time (sec): 2.721779953004443
+12/02 08:14:39 AM Accuracy of the network on the 10000 test images: 0.5999
+12/02 08:14:39 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:14:44 AM [epoch=3, batch=  100] loss: 0.995
+12/02 08:14:48 AM [epoch=3, batch=  200] loss: 0.989
+12/02 08:14:53 AM [epoch=3, batch=  300] loss: 0.948
+Training time (sec): 19.455876667998382
+Epoch 3 finished
+12/02 08:15:01 AM Inference time (sec): 2.7413093130016932
+12/02 08:15:01 AM Accuracy of the network on the 10000 test images: 0.6486
+12/02 08:15:01 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:15:06 AM [epoch=4, batch=  100] loss: 0.869
+12/02 08:15:11 AM [epoch=4, batch=  200] loss: 0.869
+12/02 08:15:17 AM [epoch=4, batch=  300] loss: 0.850
+Training time (sec): 21.153149509002105
+Epoch 4 finished
+12/02 08:15:25 AM Inference time (sec): 2.82744756500324
+12/02 08:15:25 AM Accuracy of the network on the 10000 test images: 0.6611
+12/02 08:15:25 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:15:30 AM [epoch=5, batch=  100] loss: 0.778
+12/02 08:15:35 AM [epoch=5, batch=  200] loss: 0.784
+12/02 08:15:40 AM [epoch=5, batch=  300] loss: 0.784
+Training time (sec): 19.706930341999396
+Epoch 5 finished
+12/02 08:15:47 AM Inference time (sec): 2.8106747989950236
+12/02 08:15:47 AM Accuracy of the network on the 10000 test images: 0.6804
+12/02 08:15:47 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:15:52 AM [epoch=6, batch=  100] loss: 0.703
+12/02 08:15:57 AM [epoch=6, batch=  200] loss: 0.719
+12/02 08:16:02 AM [epoch=6, batch=  300] loss: 0.701
+Training time (sec): 19.41714726200007
+Epoch 6 finished
+12/02 08:16:09 AM Inference time (sec): 2.7227191889978712
+12/02 08:16:09 AM Accuracy of the network on the 10000 test images: 0.6976
+12/02 08:16:09 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:16:14 AM [epoch=7, batch=  100] loss: 0.613
+12/02 08:16:20 AM [epoch=7, batch=  200] loss: 0.652
+12/02 08:16:25 AM [epoch=7, batch=  300] loss: 0.630
+Training time (sec): 19.671521133997885
+Epoch 7 finished
+12/02 08:16:32 AM Inference time (sec): 2.9035260640011984
+12/02 08:16:32 AM Accuracy of the network on the 10000 test images: 0.7228
+12/02 08:16:32 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:16:38 AM [epoch=8, batch=  100] loss: 0.563
+12/02 08:16:43 AM [epoch=8, batch=  200] loss: 0.569
+12/02 08:16:49 AM [epoch=8, batch=  300] loss: 0.577
+Training time (sec): 21.48670886099717
+Epoch 8 finished
+12/02 08:16:56 AM Inference time (sec): 2.7848682240000926
+12/02 08:16:56 AM Accuracy of the network on the 10000 test images: 0.7155
+12/02 08:17:01 AM [epoch=9, batch=  100] loss: 0.504
+12/02 08:17:06 AM [epoch=9, batch=  200] loss: 0.521
+12/02 08:17:11 AM [epoch=9, batch=  300] loss: 0.511
+Training time (sec): 19.53005901099823
+Epoch 9 finished
+12/02 08:17:19 AM Inference time (sec): 2.7112470819993177
+12/02 08:17:19 AM Accuracy of the network on the 10000 test images: 0.7351
+12/02 08:17:19 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:17:24 AM [epoch=10, batch=  100] loss: 0.436
+12/02 08:17:29 AM [epoch=10, batch=  200] loss: 0.451
+12/02 08:17:34 AM [epoch=10, batch=  300] loss: 0.462
+Training time (sec): 19.437136205997376
+Epoch 10 finished
+12/02 08:17:41 AM Inference time (sec): 2.7022065139972256
+12/02 08:17:41 AM Accuracy of the network on the 10000 test images: 0.7366
+12/02 08:17:41 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:17:46 AM [epoch=11, batch=  100] loss: 0.393
+12/02 08:17:51 AM [epoch=11, batch=  200] loss: 0.414
+12/02 08:17:56 AM [epoch=11, batch=  300] loss: 0.405
+Training time (sec): 19.452013681002427
+Epoch 11 finished
+12/02 08:18:03 AM Inference time (sec): 2.745823040997493
+12/02 08:18:03 AM Accuracy of the network on the 10000 test images: 0.75
+12/02 08:18:03 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:18:08 AM [epoch=12, batch=  100] loss: 0.344
+12/02 08:18:13 AM [epoch=12, batch=  200] loss: 0.350
+12/02 08:18:18 AM [epoch=12, batch=  300] loss: 0.357
+Training time (sec): 19.437942521995865
+Epoch 12 finished
+12/02 08:18:25 AM Inference time (sec): 2.6893594180000946
+12/02 08:18:25 AM Accuracy of the network on the 10000 test images: 0.7302
+12/02 08:18:30 AM [epoch=13, batch=  100] loss: 0.295
+12/02 08:18:35 AM [epoch=13, batch=  200] loss: 0.298
+12/02 08:18:40 AM [epoch=13, batch=  300] loss: 0.333
+Training time (sec): 19.348129114994663
+Epoch 13 finished
+12/02 08:18:47 AM Inference time (sec): 2.7126670630023
+12/02 08:18:47 AM Accuracy of the network on the 10000 test images: 0.722
+12/02 08:18:52 AM [epoch=14, batch=  100] loss: 0.261
+12/02 08:18:57 AM [epoch=14, batch=  200] loss: 0.254
+12/02 08:19:02 AM [epoch=14, batch=  300] loss: 0.275
+Training time (sec): 19.335486149000644
+Epoch 14 finished
+12/02 08:19:09 AM Inference time (sec): 2.7269302739950945
+12/02 08:19:09 AM Accuracy of the network on the 10000 test images: 0.7499
+12/02 08:19:14 AM [epoch=15, batch=  100] loss: 0.173
+12/02 08:19:19 AM [epoch=15, batch=  200] loss: 0.151
+12/02 08:19:24 AM [epoch=15, batch=  300] loss: 0.147
+Training time (sec): 19.56782624599873
+Epoch 15 finished
+12/02 08:19:32 AM Inference time (sec): 2.7038293250006973
+12/02 08:19:32 AM Accuracy of the network on the 10000 test images: 0.7752
+12/02 08:19:32 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:19:36 AM [epoch=16, batch=  100] loss: 0.127
+12/02 08:19:41 AM [epoch=16, batch=  200] loss: 0.120
+12/02 08:19:46 AM [epoch=16, batch=  300] loss: 0.120
+Training time (sec): 19.468859959997644
+Epoch 16 finished
+12/02 08:19:54 AM Inference time (sec): 2.737859593995381
+12/02 08:19:54 AM Accuracy of the network on the 10000 test images: 0.7755
+12/02 08:19:54 AM Saving currently best model.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights.pt
+12/02 08:19:59 AM [epoch=17, batch=  100] loss: 0.114
+12/02 08:20:04 AM [epoch=17, batch=  200] loss: 0.109
+12/02 08:20:09 AM [epoch=17, batch=  300] loss: 0.108
+Training time (sec): 19.528570787995704
+Epoch 17 finished
+12/02 08:20:16 AM Inference time (sec): 2.802594513996155
+12/02 08:20:16 AM Accuracy of the network on the 10000 test images: 0.7728
+12/02 08:20:21 AM [epoch=18, batch=  100] loss: 0.102
+12/02 08:20:26 AM [epoch=18, batch=  200] loss: 0.103
+12/02 08:20:31 AM [epoch=18, batch=  300] loss: 0.098
+Training time (sec): 19.495527269005834
+Epoch 18 finished
+12/02 08:20:38 AM Inference time (sec): 2.7426867590038455
+12/02 08:20:38 AM Accuracy of the network on the 10000 test images: 0.7708
+12/02 08:20:43 AM [epoch=19, batch=  100] loss: 0.089
+12/02 08:20:48 AM [epoch=19, batch=  200] loss: 0.094
+12/02 08:20:53 AM [epoch=19, batch=  300] loss: 0.096
+Training time (sec): 19.470789056002104
+Epoch 19 finished
+12/02 08:21:01 AM Inference time (sec): 2.7066873889998533
+12/02 08:21:01 AM Accuracy of the network on the 10000 test images: 0.7698
+12/02 08:21:05 AM [epoch=20, batch=  100] loss: 0.087
+12/02 08:21:11 AM [epoch=20, batch=  200] loss: 0.082
+12/02 08:21:16 AM [epoch=20, batch=  300] loss: 0.086
+Training time (sec): 19.61766135799553
+Epoch 20 finished
+12/02 08:21:23 AM Inference time (sec): 2.9263532490003854
+12/02 08:21:23 AM Accuracy of the network on the 10000 test images: 0.7719
+12/02 08:21:29 AM [epoch=21, batch=  100] loss: 0.079
+12/02 08:21:34 AM [epoch=21, batch=  200] loss: 0.081
+12/02 08:21:39 AM [epoch=21, batch=  300] loss: 0.080
+Training time (sec): 20.281697622005595
+Epoch 21 finished
+12/02 08:21:46 AM Inference time (sec): 2.691096786998969
+12/02 08:21:46 AM Accuracy of the network on the 10000 test images: 0.7748
+12/02 08:21:51 AM [epoch=22, batch=  100] loss: 0.074
+12/02 08:21:56 AM [epoch=22, batch=  200] loss: 0.074
+12/02 08:22:01 AM [epoch=22, batch=  300] loss: 0.076
+Training time (sec): 19.41802119100612
+Epoch 22 finished
+12/02 08:22:08 AM Inference time (sec): 2.6752035210010945
+12/02 08:22:08 AM Accuracy of the network on the 10000 test images: 0.773
+12/02 08:22:13 AM [epoch=23, batch=  100] loss: 0.068
+12/02 08:22:18 AM [epoch=23, batch=  200] loss: 0.069
+12/02 08:22:23 AM [epoch=23, batch=  300] loss: 0.070
+Training time (sec): 20.208011999005976
+Epoch 23 finished
+12/02 08:22:31 AM Inference time (sec): 2.8821702619970893
+12/02 08:22:31 AM Accuracy of the network on the 10000 test images: 0.7727
+12/02 08:22:37 AM [epoch=24, batch=  100] loss: 0.063
+12/02 08:22:42 AM [epoch=24, batch=  200] loss: 0.068
+12/02 08:22:48 AM [epoch=24, batch=  300] loss: 0.065
+Training time (sec): 21.33557156399911
+Epoch 24 finished
+12/02 08:22:55 AM Inference time (sec): 2.827413536993845
+12/02 08:22:55 AM Accuracy of the network on the 10000 test images: 0.7714
+12/02 08:23:01 AM [epoch=25, batch=  100] loss: 0.060
+12/02 08:23:06 AM [epoch=25, batch=  200] loss: 0.063
+12/02 08:23:12 AM [epoch=25, batch=  300] loss: 0.061
+Training time (sec): 21.515136213994992
+Epoch 25 finished
+12/02 08:23:20 AM Inference time (sec): 2.9337270869946224
+12/02 08:23:20 AM Accuracy of the network on the 10000 test images: 0.7725
+12/02 08:23:25 AM [epoch=26, batch=  100] loss: 0.057
+12/02 08:23:31 AM [epoch=26, batch=  200] loss: 0.057
+12/02 08:23:36 AM [epoch=26, batch=  300] loss: 0.060
+Training time (sec): 21.25688791900029
+Epoch 26 finished
+12/02 08:23:44 AM Inference time (sec): 2.9049225650014705
+12/02 08:23:44 AM Accuracy of the network on the 10000 test images: 0.771
+12/02 08:23:49 AM [epoch=27, batch=  100] loss: 0.051
+12/02 08:23:55 AM [epoch=27, batch=  200] loss: 0.053
+12/02 08:24:00 AM [epoch=27, batch=  300] loss: 0.053
+Training time (sec): 20.16547127800004
+Epoch 27 finished
+12/02 08:24:07 AM Inference time (sec): 2.730205942003522
+12/02 08:24:07 AM Accuracy of the network on the 10000 test images: 0.7736
+12/02 08:24:12 AM [epoch=28, batch=  100] loss: 0.052
+12/02 08:24:17 AM [epoch=28, batch=  200] loss: 0.050
+12/02 08:24:22 AM [epoch=28, batch=  300] loss: 0.050
+Training time (sec): 19.411838544998318
+Epoch 28 finished
+12/02 08:24:29 AM Inference time (sec): 2.720598730003985
+12/02 08:24:29 AM Accuracy of the network on the 10000 test images: 0.769
+12/02 08:24:34 AM [epoch=29, batch=  100] loss: 0.047
+12/02 08:24:39 AM [epoch=29, batch=  200] loss: 0.049
+12/02 08:24:44 AM [epoch=29, batch=  300] loss: 0.046
+Training time (sec): 19.32065896700078
+Epoch 29 finished
+12/02 08:24:51 AM Inference time (sec): 2.697359992998827
+12/02 08:24:51 AM Accuracy of the network on the 10000 test images: 0.7713
+12/02 08:24:56 AM [epoch=30, batch=  100] loss: 0.042
+12/02 08:25:01 AM [epoch=30, batch=  200] loss: 0.043
+12/02 08:25:06 AM [epoch=30, batch=  300] loss: 0.042
+Training time (sec): 19.504326720998506
+Epoch 30 finished
+12/02 08:25:13 AM Inference time (sec): 2.712576143996557
+12/02 08:25:13 AM Accuracy of the network on the 10000 test images: 0.7704
+12/02 08:25:18 AM [epoch=31, batch=  100] loss: 0.043
+12/02 08:25:23 AM [epoch=31, batch=  200] loss: 0.041
+12/02 08:25:28 AM [epoch=31, batch=  300] loss: 0.042
+Training time (sec): 19.495384414003638
+Epoch 31 finished
+12/02 08:25:36 AM Inference time (sec): 2.73821821599995
+12/02 08:25:36 AM Accuracy of the network on the 10000 test images: 0.7749
+12/02 08:25:40 AM [epoch=32, batch=  100] loss: 0.040
+12/02 08:25:45 AM [epoch=32, batch=  200] loss: 0.041
+12/02 08:25:50 AM [epoch=32, batch=  300] loss: 0.041
+Training time (sec): 19.31630075599969
+Epoch 32 finished
+12/02 08:25:57 AM Inference time (sec): 2.6638573879972682
+12/02 08:25:57 AM Accuracy of the network on the 10000 test images: 0.7722
+12/02 08:26:02 AM [epoch=33, batch=  100] loss: 0.042
+12/02 08:26:07 AM [epoch=33, batch=  200] loss: 0.042
+12/02 08:26:12 AM [epoch=33, batch=  300] loss: 0.041
+Training time (sec): 19.353127852999023
+Epoch 33 finished
+12/02 08:26:20 AM Inference time (sec): 2.7075462409993634
+12/02 08:26:20 AM Accuracy of the network on the 10000 test images: 0.7739
+12/02 08:26:25 AM [epoch=34, batch=  100] loss: 0.041
+12/02 08:26:29 AM [epoch=34, batch=  200] loss: 0.040
+12/02 08:26:34 AM [epoch=34, batch=  300] loss: 0.039
+Training time (sec): 19.418937342998106
+Epoch 34 finished
+12/02 08:26:42 AM Inference time (sec): 2.7004282799971406
+12/02 08:26:42 AM Accuracy of the network on the 10000 test images: 0.7719
+12/02 08:26:47 AM [epoch=35, batch=  100] loss: 0.040
+12/02 08:26:51 AM [epoch=35, batch=  200] loss: 0.042
+12/02 08:26:56 AM [epoch=35, batch=  300] loss: 0.040
+Training time (sec): 19.13131951900141
+Epoch 35 finished
+12/02 08:27:04 AM Inference time (sec): 2.758339350002643
+12/02 08:27:04 AM Accuracy of the network on the 10000 test images: 0.7723
+12/02 08:27:08 AM [epoch=36, batch=  100] loss: 0.039
+12/02 08:27:13 AM [epoch=36, batch=  200] loss: 0.044
+12/02 08:27:18 AM [epoch=36, batch=  300] loss: 0.039
+Training time (sec): 19.2299281730011
+Epoch 36 finished
+12/02 08:27:25 AM Inference time (sec): 2.7006644630018855
+12/02 08:27:25 AM Accuracy of the network on the 10000 test images: 0.7748
+12/02 08:27:30 AM [epoch=37, batch=  100] loss: 0.040
+12/02 08:27:35 AM [epoch=37, batch=  200] loss: 0.038
+12/02 08:27:40 AM [epoch=37, batch=  300] loss: 0.041
+Training time (sec): 19.401459325999895
+Epoch 37 finished
+12/02 08:27:48 AM Inference time (sec): 2.705785152000317
+12/02 08:27:48 AM Accuracy of the network on the 10000 test images: 0.7733
+12/02 08:27:53 AM [epoch=38, batch=  100] loss: 0.040
+12/02 08:27:57 AM [epoch=38, batch=  200] loss: 0.040
+12/02 08:28:02 AM [epoch=38, batch=  300] loss: 0.039
+Training time (sec): 19.23704344399448
+Epoch 38 finished
+12/02 08:28:10 AM Inference time (sec): 2.731959317003202
+12/02 08:28:10 AM Accuracy of the network on the 10000 test images: 0.7733
+12/02 08:28:15 AM [epoch=39, batch=  100] loss: 0.040
+12/02 08:28:19 AM [epoch=39, batch=  200] loss: 0.038
+12/02 08:28:24 AM [epoch=39, batch=  300] loss: 0.040
+Training time (sec): 19.34215370399761
+Epoch 39 finished
+12/02 08:28:32 AM Inference time (sec): 2.7385018819986726
+12/02 08:28:32 AM Accuracy of the network on the 10000 test images: 0.7738
+12/02 08:28:37 AM [epoch=40, batch=  100] loss: 0.039
+12/02 08:28:42 AM [epoch=40, batch=  200] loss: 0.039
+12/02 08:28:46 AM [epoch=40, batch=  300] loss: 0.041
+Training time (sec): 19.277863877003256
+Epoch 40 finished
+12/02 08:28:54 AM Inference time (sec): 2.654986554000061
+12/02 08:28:54 AM Accuracy of the network on the 10000 test images: 0.7721
+12/02 08:28:58 AM [epoch=41, batch=  100] loss: 0.040
+12/02 08:29:03 AM [epoch=41, batch=  200] loss: 0.039
+12/02 08:29:08 AM [epoch=41, batch=  300] loss: 0.039
+Training time (sec): 19.251829549997638
+Epoch 41 finished
+12/02 08:29:16 AM Inference time (sec): 2.692414663004456
+12/02 08:29:16 AM Accuracy of the network on the 10000 test images: 0.7718
+12/02 08:29:20 AM [epoch=42, batch=  100] loss: 0.039
+12/02 08:29:25 AM [epoch=42, batch=  200] loss: 0.038
+12/02 08:29:30 AM [epoch=42, batch=  300] loss: 0.041
+Training time (sec): 19.30370486600441
+Epoch 42 finished
+12/02 08:29:38 AM Inference time (sec): 2.7480060999951093
+12/02 08:29:38 AM Accuracy of the network on the 10000 test images: 0.7745
+12/02 08:29:43 AM [epoch=43, batch=  100] loss: 0.040
+12/02 08:29:47 AM [epoch=43, batch=  200] loss: 0.038
+12/02 08:29:52 AM [epoch=43, batch=  300] loss: 0.039
+Training time (sec): 19.27847519700299
+Epoch 43 finished
+12/02 08:30:00 AM Inference time (sec): 2.67744116600079
+12/02 08:30:00 AM Accuracy of the network on the 10000 test images: 0.7706
+12/02 08:30:05 AM [epoch=44, batch=  100] loss: 0.040
+12/02 08:30:09 AM [epoch=44, batch=  200] loss: 0.038
+12/02 08:30:14 AM [epoch=44, batch=  300] loss: 0.038
+Training time (sec): 19.357509678004135
+Epoch 44 finished
+12/02 08:30:22 AM Inference time (sec): 2.688031587997102
+12/02 08:30:22 AM Accuracy of the network on the 10000 test images: 0.7699
+12/02 08:30:27 AM [epoch=45, batch=  100] loss: 0.039
+12/02 08:30:32 AM [epoch=45, batch=  200] loss: 0.039
+12/02 08:30:36 AM [epoch=45, batch=  300] loss: 0.036
+Training time (sec): 19.47959841300326
+Epoch 45 finished
+12/02 08:30:44 AM Inference time (sec): 2.760266404999129
+12/02 08:30:44 AM Accuracy of the network on the 10000 test images: 0.7736
+12/02 08:30:49 AM [epoch=46, batch=  100] loss: 0.036
+12/02 08:30:54 AM [epoch=46, batch=  200] loss: 0.039
+12/02 08:30:59 AM [epoch=46, batch=  300] loss: 0.038
+Training time (sec): 19.362263597999117
+Epoch 46 finished
+12/02 08:31:06 AM Inference time (sec): 2.681715733000601
+12/02 08:31:06 AM Accuracy of the network on the 10000 test images: 0.774
+12/02 08:31:11 AM [epoch=47, batch=  100] loss: 0.038
+12/02 08:31:16 AM [epoch=47, batch=  200] loss: 0.038
+12/02 08:31:21 AM [epoch=47, batch=  300] loss: 0.037
+Training time (sec): 19.4690998570004
+Epoch 47 finished
+12/02 08:31:28 AM Inference time (sec): 2.6998480909969658
+12/02 08:31:28 AM Accuracy of the network on the 10000 test images: 0.7729
+12/02 08:31:33 AM [epoch=48, batch=  100] loss: 0.039
+12/02 08:31:38 AM [epoch=48, batch=  200] loss: 0.036
+12/02 08:31:43 AM [epoch=48, batch=  300] loss: 0.038
+Training time (sec): 19.431487935995392
+Epoch 48 finished
+12/02 08:31:50 AM Inference time (sec): 2.6771086910011945
+12/02 08:31:50 AM Accuracy of the network on the 10000 test images: 0.7741
+12/02 08:31:55 AM [epoch=49, batch=  100] loss: 0.038
+12/02 08:32:00 AM [epoch=49, batch=  200] loss: 0.036
+12/02 08:32:05 AM [epoch=49, batch=  300] loss: 0.039
+Training time (sec): 19.383401038998272
+Epoch 49 finished
+12/02 08:32:12 AM Inference time (sec): 2.6975240199972177
+12/02 08:32:12 AM Accuracy of the network on the 10000 test images: 0.7711
+12/02 08:32:12 AM Saving model in the 50th epoch.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights_50.pt
+12/02 08:32:15 AM Inference time (sec): 2.6869914709968725
+12/02 08:32:15 AM Accuracy of the network on the 10000 test images: 0.7703
+12/02 08:32:15 AM Saving model in the 100th epoch.. to EXP_squeeze_L16/SqueezeNet-20241202-081329/weights_100.pt
+12/02 08:32:18 AM Inference time (sec): 2.680104680999648
+12/02 08:32:18 AM Accuracy of the network on the 10000 test images: 0.7726
+12/02 08:32:18 AM Finished Training

@@ -5,17 +5,18 @@ import matplotlib.pyplot as plt
 from io import StringIO
 import os
 from parse_timing import parse_timing_log
+from common import ConvConfig
 
-def test_L_value(L, batch_size=256, in_channels=48, out_channels=48, input_size=32):
+def test_L_value(L, config: ConvConfig):
     """运行单个L值的测试"""
     cmd = [
         'python', '-u', 'run_a_layer.py',
         '--param-L', str(L),
         '--param-H', str(12),
-        '--batch-size', str(batch_size),
-        '--in-channels', str(in_channels),
-        '--out-channels', str(out_channels),
-        '--input-size', str(input_size),
+        '--batch-size', str(config.batch_size),
+        '--in-channels', str(config.in_channels),
+        '--out-channels', str(config.out_channels),
+        '--input-size', str(config.input_size),
         '--num-warmup', '10',
         '--num-runs', '100'
     ]
@@ -23,14 +24,14 @@ def test_L_value(L, batch_size=256, in_channels=48, out_channels=48, input_size=
     result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
     return result.stdout
 
-def test_baseline(batch_size=256, in_channels=48, out_channels=48, input_size=64):
+def test_baseline(config: ConvConfig):
     """运行普通卷积层作为基准"""
     cmd = [
         'python', '-u', 'run_a_layer.py',
-        '--batch-size', str(batch_size),
-        '--in-channels', str(in_channels),
-        '--out-channels', str(out_channels),
-        '--input-size', str(input_size),
+        '--batch-size', str(config.batch_size),
+        '--in-channels', str(config.in_channels),
+        '--out-channels', str(config.out_channels),
+        '--input-size', str(config.input_size),
         '--num-warmup', '10',
         '--num-runs', '100',
         '--baseline'
@@ -41,9 +42,9 @@ def test_baseline(batch_size=256, in_channels=48, out_channels=48, input_size=64
 
 def analyze_L_performance():
     # 生成合理范围的L值
-    in_channels = 48
-    kernel_size = 19
-    max_L = min(26, in_channels * kernel_size * kernel_size)
+    config = ConvConfig(batch_size=256, in_channels=48, out_channels=48, input_size=64, kernel_size=19)
+
+    max_L = min(26, config.in_channels * config.kernel_size * config.kernel_size)
     L_values = list(range(1, max_L + 1))
     
     # 存储结果
@@ -52,13 +53,13 @@ def analyze_L_performance():
     print("Testing different L values...")
     for L in L_values:
         print(f"\nTesting L={L}")
-        output = test_L_value(L)
+        output = test_L_value(L, config)
         
         # 使用parse_timing_log解析时间数据，但不打印中间统计
         time_stats = parse_timing_log(StringIO(output), print_stats=False)
         
         # 计算矩阵数量
-        n_matrices = (in_channels * kernel_size * kernel_size + L - 1) // L
+        n_matrices = (config.in_channels * config.kernel_size * config.kernel_size + L - 1) // L
         
         # 存储结果
         result = {'L': L, 'n_matrices': n_matrices}

@@ -1,0 +1,82 @@
+Experiment dir : EXP_L31
+Experiment dir : EXP_L31/CifarNet-20241201-233737
+12/01 11:37:37 PM gpu device = 0
+12/01 11:37:37 PM args = Namespace(checkpoint_path='EXP_L31/CifarNet-20241201-233737', dataset_path='data', model_name='CifarNet', epochs=10, batch_size=128, learning_rate=0.1, momentum=0.9, weight_decay=0.0001, grad_clip=5, step=15, trec=[0, 1], L=[31, 31], H=[12, 12], bp_trec=[0, 0, 0, 0], bp_L=[1, 1, 1, 1], bp_H=[1, 1, 1, 1], gpu=0, depth=40, k=12)
+Files already downloaded and verified
+Files already downloaded and verified
+12/01 11:37:44 PM [epoch=0, batch=  100] loss: 2.127
+12/01 11:37:48 PM [epoch=0, batch=  200] loss: 2.055
+12/01 11:37:52 PM [epoch=0, batch=  300] loss: 2.016
+Training time (sec): 16.792461164999622
+Epoch 0 finished
+12/01 11:37:58 PM Inference time (sec): 2.480772832999719
+12/01 11:37:58 PM Accuracy of the network on the 10000 test images: 0.2734
+12/01 11:37:58 PM Saving currently best model.. to EXP_L31/CifarNet-20241201-233737/weights.pt
+12/01 11:38:02 PM [epoch=1, batch=  100] loss: 1.969
+12/01 11:38:07 PM [epoch=1, batch=  200] loss: 1.965
+12/01 11:38:11 PM [epoch=1, batch=  300] loss: 1.945
+Training time (sec): 16.346797910000532
+Epoch 1 finished
+12/01 11:38:17 PM Inference time (sec): 2.4557736400001886
+12/01 11:38:17 PM Accuracy of the network on the 10000 test images: 0.3131
+12/01 11:38:17 PM Saving currently best model.. to EXP_L31/CifarNet-20241201-233737/weights.pt
+12/01 11:38:21 PM [epoch=2, batch=  100] loss: 1.926
+12/01 11:38:25 PM [epoch=2, batch=  200] loss: 1.914
+12/01 11:38:29 PM [epoch=2, batch=  300] loss: 1.926
+Training time (sec): 16.14935133400104
+Epoch 2 finished
+12/01 11:38:36 PM Inference time (sec): 2.447202205999929
+12/01 11:38:36 PM Accuracy of the network on the 10000 test images: 0.3031
+12/01 11:38:40 PM [epoch=3, batch=  100] loss: 1.913
+12/01 11:38:44 PM [epoch=3, batch=  200] loss: 1.939
+12/01 11:38:48 PM [epoch=3, batch=  300] loss: 1.904
+Training time (sec): 16.27537536700038
+Epoch 3 finished
+12/01 11:38:54 PM Inference time (sec): 2.4473104499993497
+12/01 11:38:54 PM Accuracy of the network on the 10000 test images: 0.297
+12/01 11:38:58 PM [epoch=4, batch=  100] loss: 1.908
+12/01 11:39:03 PM [epoch=4, batch=  200] loss: 1.884
+12/01 11:39:07 PM [epoch=4, batch=  300] loss: 1.883
+Training time (sec): 16.32110304499838
+Epoch 4 finished
+12/01 11:39:13 PM Inference time (sec): 2.469138049000321
+12/01 11:39:13 PM Accuracy of the network on the 10000 test images: 0.31
+12/01 11:39:17 PM [epoch=5, batch=  100] loss: 1.887
+12/01 11:39:21 PM [epoch=5, batch=  200] loss: 1.882
+12/01 11:39:26 PM [epoch=5, batch=  300] loss: 1.904
+Training time (sec): 16.313670257000922
+Epoch 5 finished
+12/01 11:39:32 PM Inference time (sec): 2.4968371410013788
+12/01 11:39:32 PM Accuracy of the network on the 10000 test images: 0.2886
+12/01 11:39:36 PM [epoch=6, batch=  100] loss: 1.887
+12/01 11:39:40 PM [epoch=6, batch=  200] loss: 1.884
+12/01 11:39:44 PM [epoch=6, batch=  300] loss: 1.879
+Training time (sec): 16.21175704900088
+Epoch 6 finished
+12/01 11:39:51 PM Inference time (sec): 2.4594274810006027
+12/01 11:39:51 PM Accuracy of the network on the 10000 test images: 0.2785
+12/01 11:39:55 PM [epoch=7, batch=  100] loss: 1.894
+12/01 11:39:59 PM [epoch=7, batch=  200] loss: 1.888
+12/01 11:40:03 PM [epoch=7, batch=  300] loss: 1.898
+Training time (sec): 16.184896912000113
+Epoch 7 finished
+12/01 11:40:09 PM Inference time (sec): 2.433972672000891
+12/01 11:40:09 PM Accuracy of the network on the 10000 test images: 0.2864
+12/01 11:40:13 PM [epoch=8, batch=  100] loss: 1.872
+12/01 11:40:18 PM [epoch=8, batch=  200] loss: 1.881
+12/01 11:40:22 PM [epoch=8, batch=  300] loss: 1.884
+Training time (sec): 16.334846890000335
+Epoch 8 finished
+12/01 11:40:28 PM Inference time (sec): 2.50219381900024
+12/01 11:40:28 PM Accuracy of the network on the 10000 test images: 0.2862
+12/01 11:40:32 PM [epoch=9, batch=  100] loss: 1.889
+12/01 11:40:36 PM [epoch=9, batch=  200] loss: 1.905
+12/01 11:40:41 PM [epoch=9, batch=  300] loss: 1.881
+Training time (sec): 16.253330661998916
+Epoch 9 finished
+12/01 11:40:47 PM Inference time (sec): 2.482562933999361
+12/01 11:40:47 PM Accuracy of the network on the 10000 test images: 0.3039
+12/01 11:40:47 PM Saving model in the 100th epoch.. to EXP_L31/CifarNet-20241201-233737/weights_100.pt
+12/01 11:40:49 PM Inference time (sec): 2.49827174299935
+12/01 11:40:49 PM Accuracy of the network on the 10000 test images: 0.3037
+12/01 11:40:49 PM Finished Training
